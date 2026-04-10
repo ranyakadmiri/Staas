@@ -8,4 +8,5 @@ import java.util.List;
 
 @Repository
 public interface AccesCredentialRepository extends JpaRepository<AccessCredential, Long> {
-    AccessCredential findByProjectId(Long projectId);}
+    AccessCredential findByProjectId(Long projectId);
+    List<AccessCredential> findByProjectOwnerEmail(String email);}

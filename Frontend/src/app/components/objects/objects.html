@@ -1,0 +1,71 @@
+<div class="objects-container">
+
+  <h2>Objects in <span class="bucket-name">{{ bucketName }}</span></h2>
+ <!-- ⭐ Bucket Stats -->
+
+  <div class="stats-grid">
+
+    <div class="stat-card">
+      <h4>Total Objects</h4>
+      <p>{{bucketStats.objectCount || 0}}</p>
+    </div>
+
+    <div class="stat-card">
+      <h4>Total Storage</h4>
+      <p>{{bucketStats.totalSizeMB || 0}} MB</p>
+    </div>
+
+    <div class="stat-card">
+      <h4>Largest Object</h4>
+      <p>{{bucketStats.largestObject || 'N/A'}}</p>
+    </div>
+
+    <div class="stat-card">
+      <h4>Last Uploaded</h4>
+      <p>{{bucketStats.lastObject || 'N/A'}}</p>
+    </div>
+
+  </div>
+  <div class="objects-card">
+
+    <table>
+
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Size</th>
+          <th>Last Modified</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+        <tr *ngFor="let obj of objects">
+
+          <td class="object-name">{{obj.name}}</td>
+          <td>{{obj.size}} bytes</td>
+          <td>{{obj.lastModified | date:'medium'}}</td>
+
+        </tr>
+
+      </tbody>
+
+    </table>
+
+  </div>
+
+  <!-- Upload Section -->
+
+  <div class="upload-card">
+
+    <h3>Upload File</h3>
+
+    <input type="file" (change)="onFileSelected($event)" class="file-input"/>
+
+    <button type="button" (click)="upload()" class="upload-btn">
+      Upload
+    </button>
+
+  </div>
+
+</div>

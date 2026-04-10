@@ -1,0 +1,114 @@
+<div class="fs-panel">
+
+  <div class="alert success" *ngIf="success">{{ success }}</div>
+  <div class="alert error" *ngIf="error">
+    {{ error }}
+    <span class="close" (click)="clearError()">✕</span>
+  </div>
+
+  <!-- ── Share list ── -->
+  <ng-container *ngIf="!currentShare">
+
+    <div class="panel-header">
+      <div class="panel-title">
+        <span class="icon">🗂️</span>
+        <div>
+          <h2>File Storage</h2>
+          <p>CephFS shared volumes</p>
+        </div>
+      </div>
+      <button class="btn primary" (click)="showForm = !showForm">+ New Share</button>
+    </div>
+
+    <div class="create-form" *ngIf="showForm">
+      <input
+        [(ngModel)]="newShareName"
+        placeholder="Share name (letters, numbers, dash, underscore)"
+        class="input"
+        (keyup.enter)="createShare()"
+      />
+      <button class="btn primary" (click)="createShare()" [disabled]="loading">Create</button>
+      <button class="btn secondary" (click)="showForm = false">Cancel</button>
+    </div>
+
+    <div class="loading" *ngIf="loading">
+      <div class="spinner"></div> Loading...
+    </div>
+
+    <div class="empty" *ngIf="!loading && shares.length === 0">
+      <div class="empty-icon">🗂️</div>
+      <h3>No shares yet</h3>
+      <p>Create your first CephFS share</p>
+      <button class="btn primary" (click)="showForm = true">New Share</button>
+    </div>
+
+    <div class="share-grid" *ngIf="!loading && shares.length > 0">
+      <div class="share-card" *ngFor="let share of shares" (click)="openShare(share)">
+        <div class="share-left">
+          <span class="share-icon">📁</span>
+          <div>
+            <div class="share-name">{{ share }}</div>
+            <div class="share-label">CephFS share</div>
+          </div>
+        </div>
+        <button class="btn danger btn-sm"
+          (click)="$event.stopPropagation(); deleteShare(share)">
+          Delete
+        </button>
+      </div>
+    </div>
+
+  </ng-container>
+
+  <!-- ── Browse view ── -->
+  <ng-container *ngIf="currentShare">
+
+    <div class="panel-header">
+      <div class="panel-title">
+        <button class="back-btn" (click)="goBack()">← Back</button>
+        <div>
+          <h2>{{ currentShare }}</h2>
+          <p *ngIf="shareSize">Total size: {{ shareSize }}</p>
+        </div>
+      </div>
+      <label class="btn primary">
+        ↑ Upload File
+        <input type="file" hidden (change)="onFileSelected($event)" />
+      </label>
+    </div>
+
+    <div class="loading" *ngIf="loading">
+      <div class="spinner"></div> Loading...
+    </div>
+
+    <div class="empty" *ngIf="!loading && entries.length === 0">
+      <div class="empty-icon">📄</div>
+      <h3>Share is empty</h3>
+      <p>Upload a file to get started</p>
+    </div>
+
+    <table class="file-table" *ngIf="!loading && entries.length > 0">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Size</th>
+          <th>Modified</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let entry of entries">
+          <td>
+            <span class="entry-icon">{{ entry.isDirectory ? '📁' : '📄' }}</span>
+            {{ entry.name }}
+          </td>
+          <td>{{ entry.isDirectory ? 'Directory' : 'File' }}</td>
+          <td>{{ entry.size }}</td>
+          <td>{{ entry.date }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </ng-container>
+
+</div>

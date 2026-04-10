@@ -1,0 +1,91 @@
+<div class="projects-container">
+
+<h1>Projects</h1>
+
+<!-- Project List -->
+
+<div class="projects-card">
+
+<h2>Your Projects</h2>
+
+<table>
+
+<thead>
+<tr>
+<th>Project Name</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody>
+
+<tr *ngFor="let p of projects">
+
+<td class="project-name">{{p.name}}</td>
+
+<td>
+<button class="open-btn" (click)="openProject(p.id)">
+Open Buckets
+</button>
+</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+
+<!-- Create Project -->
+
+<div class="create-project-card">
+
+<h2>Create New Project</h2>
+
+<div class="form-grid">
+
+<div class="form-group">
+<label>Project Name</label>
+<input [(ngModel)]="project.name" placeholder="Example: media-storage">
+</div>
+
+<div class="form-group">
+<label>Description</label>
+<input [(ngModel)]="project.description" placeholder="Describe the purpose of this project">
+</div>
+
+<div class="form-group">
+<label>Storage Type</label>
+<select [(ngModel)]="project.storageType">
+<option value="OBJECT">Object Storage</option>
+<option value="BLOCK">Block Storage</option>
+<option value="FILE">File Storage</option>
+</select>
+</div>
+
+<div class="form-group">
+<label>Region</label>
+<input [(ngModel)]="project.region" placeholder="Example: eu-west-1">
+</div>
+
+<div class="form-group">
+<label>Maximum Buckets</label>
+<input type="number" [(ngModel)]="project.maxBuckets">
+</div>
+
+<div class="form-group">
+<label>Maximum Storage (GB)</label>
+<input type="number" [(ngModel)]="project.maxStorageGB">
+</div>
+
+</div>
+
+<button class="create-btn" (click)="createProject()">
+Create Project
+</button>
+
+</div>
+
+</div>

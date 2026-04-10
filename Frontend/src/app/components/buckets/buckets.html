@@ -1,0 +1,24 @@
+<h2>Buckets</h2>
+
+<div class="create-bucket">
+  <input [(ngModel)]="bucketName" placeholder="Bucket name">
+  <button (click)="createBucket()">Create</button>
+</div>
+
+<p class="bucket-count">Total buckets: {{buckets.length}}</p>
+
+<div class="bucket-grid">
+
+  <div class="bucket-card" *ngFor="let bucket of buckets">
+
+    <div class="bucket-icon">🪣</div>
+
+    <h3>{{bucket}}</h3>
+
+    <button (click)="openBucket(bucket)">
+      Open Bucket
+    </button>
+
+  </div>
+
+</div>

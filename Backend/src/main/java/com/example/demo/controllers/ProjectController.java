@@ -11,19 +11,19 @@ import java.security.Principal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/projects")
 @RequiredArgsConstructor
 public class ProjectController {
 
     private final ProjectService projectService;
 
-    @PostMapping("/projects")
+    @PostMapping("/createprojects")
     public ResponseEntity<Project> createProject(
             @RequestBody CreateProjectRequest request,
             Principal principal) {
 
         Project project = projectService.createProject(
-                request.getName(),
+                request,
                 principal.getName()
         );
 

@@ -25,6 +25,19 @@ public class Project {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    private ResourceType resourceType = ResourceType.OBJECT;
+
+    private String region = "default";
+
+    private Long maxBuckets = 100L;
+
+    private Long maxStorageGB = 1000L;
+
+    @Enumerated(EnumType.STRING)
+    private ProjectStatus status = ProjectStatus.ACTIVE;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     @JsonIgnore

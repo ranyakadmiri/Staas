@@ -7,6 +7,7 @@ import com.example.demo.repositories.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,5 +36,10 @@ public class CredentialService {
         credential.setActive(true);
 
         return credentialRepository.save(credential);
+    }
+    public List<AccessCredential> getUserCredentials(String email){
+
+        return credentialRepository.findByProjectOwnerEmail(email);
+
     }
 }

@@ -1,5 +1,6 @@
 package com.example.demo.services;
 
+import com.example.demo.dto.CreateProjectRequest;
 import com.example.demo.entities.Project;
 import com.example.demo.entities.User;
 import com.example.demo.repositories.ProjectRepository;
@@ -15,17 +16,29 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
 
-    public Project createProject(String name, String userEmail) {
+    private final CredentialService credentialService;
+
+    public Project createProject(CreateProjectRequest request, String userEmail) {
 
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Project project = new Project();
-        project.setName(name);
+        project.setName(request.getName());
+        project.setDescription(request.getDescription());
+        project.setResourceType(request.getResourceType());
+        project.setRegion(request.getRegion());
+        project.setMaxBuckets(request.getMaxBuckets());
+        project.setMaxStorageGB(request.getMaxStorageGB());
         project.setOwner(user);
 
 
-        return projectRepository.save(project);
+        Project savedProject = projectRepository.save(project);
+
+        // 🔑 Generate credentials automatically
+        credentialService.createCredential(savedProject.getId());
+
+        return savedProject;
     }
 
     public List<Project> getUserProjects(String userEmail) {

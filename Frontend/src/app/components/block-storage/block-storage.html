@@ -1,0 +1,93 @@
+<div class="storage-panel">
+
+  <!-- Alerts -->
+  <div class="alert success" *ngIf="success">{{ success }}</div>
+  <div class="alert error"   *ngIf="error">{{ error }}</div>
+
+  <!-- Header -->
+  <div class="panel-header">
+    <div class="panel-title">
+      <span class="storage-icon">💾</span>
+      <div>
+        <h2>Block Storage</h2>
+        <p>Ceph RBD volumes — attach to VMs via iSCSI</p>
+      </div>
+    </div>
+    <button class="btn primary" (click)="showForm = !showForm">
+      + Create Volume
+    </button>
+  </div>
+
+  <!-- Create form -->
+  <div class="create-form" *ngIf="showForm">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Volume name</label>
+        <input
+          [(ngModel)]="newVolumeName"
+          placeholder="e.g. vm-disk-01"
+          class="form-control"
+          (keyup.enter)="createVolume()"
+        />
+      </div>
+      <div class="form-group">
+        <label>Size (GB)</label>
+        <input
+          type="number"
+          [(ngModel)]="newVolumeSizeGB"
+          min="1"
+          max="1000"
+          class="form-control"
+        />
+      </div>
+      <div class="form-actions">
+        <button class="btn primary" (click)="createVolume()" [disabled]="loading">
+          Create
+        </button>
+        <button class="btn secondary" (click)="showForm = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-state" *ngIf="loading">
+    <div class="spinner"></div>
+    <span>Loading volumes...</span>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" *ngIf="!loading && volumes.length === 0">
+    <div class="empty-icon">💾</div>
+    <h3>No block volumes yet</h3>
+    <p>Create your first RBD volume to get started</p>
+    <button class="btn primary" (click)="showForm = true">Create Volume</button>
+  </div>
+
+  <!-- Volume list -->
+  <div class="volume-grid" *ngIf="!loading && volumes.length > 0">
+    <div
+      class="volume-card"
+      *ngFor="let vol of volumes"
+      [class.selected]="selectedVolume === vol"
+    >
+      <div class="volume-header">
+        <div class="volume-icon">🖥️</div>
+        <div class="volume-meta">
+          <span class="volume-name">{{ vol }}</span>
+          <span class="volume-type">RBD Volume</span>
+        </div>
+      </div>
+      <div class="volume-actions">
+        <button class="btn info btn-sm" (click)="showInfo(vol)">Info</button>
+        <button class="btn danger btn-sm" (click)="deleteVolume(vol)">Delete</button>
+      </div>
+
+      <!-- Inline info panel -->
+      <div class="info-panel" *ngIf="selectedVolume === vol && selectedVolumeInfo">
+        <pre>{{ selectedVolumeInfo }}</pre>
+        <button class="btn secondary btn-sm" (click)="closeInfo()">Close</button>
+      </div>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,125 @@
+.projects-container{
+max-width:1100px;
+margin:auto;
+padding:40px;
+font-family:Arial, Helvetica, sans-serif;
+background:#f5f7fb;
+}
+
+h1{
+margin-bottom:25px;
+color:#2c3e50;
+}
+
+h2{
+margin-bottom:20px;
+color:#34495e;
+}
+
+/* Cards */
+
+.projects-card,
+.create-project-card{
+background:white;
+padding:25px;
+border-radius:10px;
+box-shadow:0 6px 20px rgba(0,0,0,0.08);
+margin-bottom:30px;
+}
+
+/* Table */
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+thead{
+background:#f1f4fa;
+}
+
+th{
+text-align:left;
+padding:14px;
+font-size:13px;
+text-transform:uppercase;
+color:#666;
+}
+
+td{
+padding:14px;
+border-top:1px solid #eee;
+}
+
+tr:hover{
+background:#fafafa;
+}
+
+.project-name{
+font-weight:bold;
+}
+
+/* Buttons */
+
+.open-btn{
+background:#4a6cf7;
+color:white;
+border:none;
+padding:8px 14px;
+border-radius:6px;
+cursor:pointer;
+transition:0.2s;
+}
+
+.open-btn:hover{
+background:#3955d6;
+}
+
+.create-btn{
+margin-top:20px;
+background:#27ae60;
+color:white;
+border:none;
+padding:12px 20px;
+border-radius:6px;
+font-size:15px;
+cursor:pointer;
+transition:0.2s;
+}
+
+.create-btn:hover{
+background:#219150;
+}
+
+/* Form */
+
+.form-grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:20px;
+}
+
+.form-group{
+display:flex;
+flex-direction:column;
+}
+
+label{
+font-size:13px;
+margin-bottom:6px;
+color:#555;
+font-weight:600;
+}
+
+input, select{
+padding:10px;
+border:1px solid #ddd;
+border-radius:6px;
+font-size:14px;
+}
+
+input:focus, select:focus{
+outline:none;
+border-color:#4a6cf7;
+box-shadow:0 0 4px rgba(74,108,247,0.3);
+}

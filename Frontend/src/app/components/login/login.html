@@ -1,0 +1,60 @@
+
+<div class="login-container">
+  <div class="logo">
+    <img src="ns.png" alt="Logo NextStep"class="logo">
+    
+    <h1>Bienvenue chez NextStep</h1>
+    <p>Connectez-vous pour continuer</p>
+  </div>
+
+  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+    <!-- Message d'erreur -->
+    <div *ngIf="errorMessage" class="error-message">
+      <i class="fas fa-exclamation-circle"></i> {{ errorMessage }}
+      <button class="dismiss-btn" (click)="dismissError()">&times;</button>
+    </div>
+
+    <!-- Adresse e-mail -->
+    <div class="input-group">
+      <i class="fas fa-envelope"></i>
+      <input type="email" formControlName="email" placeholder="Adresse e-mail" required>
+    </div>
+    <div *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched" class="error-message">
+      <div *ngIf="loginForm.get('email')?.errors?.['required']">L'adresse e-mail est obligatoire.</div>
+      <div *ngIf="loginForm.get('email')?.errors?.['email']">Veuillez entrer une adresse e-mail valide.</div>
+    </div>
+
+    <!-- Mot de passe -->
+    <div class="input-group">
+      <i class="fas fa-lock"></i>
+      <input type="password" formControlName="password" placeholder="Mot de passe" required>
+    </div>
+    <div *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched" class="error-message">
+      Le mot de passe est obligatoire.
+    </div>
+
+    <!-- Options -->
+    <div class="options">
+      <div class="remember-me">
+        <input type="checkbox" id="remember">
+        <label for="remember">Se souvenir de moi</label>
+      </div>
+      <div class="forgot-password">
+        <a routerLink="/mot-de-passe-oublie">Mot de passe oublié ?</a>
+      </div>
+    </div>
+
+    <!-- Bouton de connexion -->
+    <button type="submit" class="login-btn" [disabled]="loginForm.invalid || isLoading" [class.loading]="isLoading">
+      <span *ngIf="!isLoading">Se connecter</span>
+      <span *ngIf="isLoading">Connexion...</span>
+    </button>
+
+    <!-- Lien vers inscription -->
+    <div class="signup-link">
+     <p>
+Don't have an account? <a routerLink="/register">Register</a>
+    </div>
+  </form>
+</div>
+
