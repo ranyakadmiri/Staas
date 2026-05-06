@@ -1,93 +1,136 @@
-<div class="storage-panel">
-
-  <!-- Alerts -->
-  <div class="alert success" *ngIf="success">{{ success }}</div>
-  <div class="alert error"   *ngIf="error">{{ error }}</div>
+<div class="storage-container">
 
   <!-- Header -->
-  <div class="panel-header">
-    <div class="panel-title">
-      <span class="storage-icon">💾</span>
-      <div>
-        <h2>Block Storage</h2>
-        <p>Ceph RBD volumes — attach to VMs via iSCSI</p>
-      </div>
-    </div>
-    <button class="btn primary" (click)="showForm = !showForm">
-      + Create Volume
-    </button>
-  </div>
-
-  <!-- Create form -->
-  <div class="create-form" *ngIf="showForm">
-    <div class="form-row">
-      <div class="form-group">
-        <label>Volume name</label>
-        <input
-          [(ngModel)]="newVolumeName"
-          placeholder="e.g. vm-disk-01"
-          class="form-control"
-          (keyup.enter)="createVolume()"
-        />
-      </div>
-      <div class="form-group">
-        <label>Size (GB)</label>
-        <input
-          type="number"
-          [(ngModel)]="newVolumeSizeGB"
-          min="1"
-          max="1000"
-          class="form-control"
-        />
-      </div>
-      <div class="form-actions">
-        <button class="btn primary" (click)="createVolume()" [disabled]="loading">
-          Create
-        </button>
-        <button class="btn secondary" (click)="showForm = false">Cancel</button>
-      </div>
+  <div class="objects-header">
+    <div class="breadcrumb">
+      <span class="path-root">Services</span>
+      <svg xmlns="http://www.w3.org/2000/svg" class="separator-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+      </svg>
+      <span class="path-current">Block Storage</span>
     </div>
   </div>
 
-  <!-- Loading -->
-  <div class="loading-state" *ngIf="loading">
-    <div class="spinner"></div>
-    <span>Loading volumes...</span>
+  <!-- Alerts -->
+  <div class="alert-success glass-panel" *ngIf="success">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+    {{ success }}
+  </div>
+  <div class="alert-error glass-panel" *ngIf="error">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    {{ error }}
   </div>
 
-  <!-- Empty state -->
-  <div class="empty-state" *ngIf="!loading && volumes.length === 0">
-    <div class="empty-icon">💾</div>
-    <h3>No block volumes yet</h3>
-    <p>Create your first RBD volume to get started</p>
-    <button class="btn primary" (click)="showForm = true">Create Volume</button>
-  </div>
+  <!-- Main Layout Split -->
+  <div class="main-content-layout">
 
-  <!-- Volume list -->
-  <div class="volume-grid" *ngIf="!loading && volumes.length > 0">
-    <div
-      class="volume-card"
-      *ngFor="let vol of volumes"
-      [class.selected]="selectedVolume === vol"
-    >
-      <div class="volume-header">
-        <div class="volume-icon">🖥️</div>
-        <div class="volume-meta">
-          <span class="volume-name">{{ vol }}</span>
-          <span class="volume-type">RBD Volume</span>
+    <!-- Left side: Volume list -->
+    <div class="volume-list-section">
+      <div class="section-title">
+        <h2>Active Volumes</h2>
+        <span class="badge">{{ volumes.length }} total</span>
+      </div>
+
+      <!-- Loading State -->
+      <div class="loading-state glass-panel" *ngIf="loading">
+        <div class="spinner"></div>
+        <p>Provisioning block storage...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state glass-panel" *ngIf="!loading && volumes.length === 0">
+         <div class="empty-icon-wrapper">
+           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+             <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+           </svg>
+         </div>
+         <h3>No Volumes Found</h3>
+         <p>Create your first RBD block volume using the panel on the right.</p>
+      </div>
+
+      <!-- Grid -->
+      <div class="volume-grid" *ngIf="!loading && volumes.length > 0">
+        <div 
+          class="volume-card glass-panel" 
+          *ngFor="let vol of volumes"
+          [class.selected-vol]="selectedVolume === vol"
+        >
+          <div class="vol-content">
+            <div class="vol-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+              </svg>
+            </div>
+            <div class="vol-info">
+              <h4>{{ vol }}</h4>
+              <p>RBD Volume • Attached</p>
+            </div>
+          </div>
+          
+          <div class="vol-actions">
+            <button class="action-btn" (click)="showInfo(vol)" title="View Details">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <button class="action-btn danger-text" (click)="deleteVolume(vol)" title="Delete Volume">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Inline Info Panel -->
+          <div class="info-dropdown" *ngIf="selectedVolume === vol && selectedVolumeInfo">
+            <pre>{{ selectedVolumeInfo }}</pre>
+            <button class="btn btn-sm" (click)="closeInfo()">Close</button>
+          </div>
         </div>
       </div>
-      <div class="volume-actions">
-        <button class="btn info btn-sm" (click)="showInfo(vol)">Info</button>
-        <button class="btn danger btn-sm" (click)="deleteVolume(vol)">Delete</button>
-      </div>
+    </div>
 
-      <!-- Inline info panel -->
-      <div class="info-panel" *ngIf="selectedVolume === vol && selectedVolumeInfo">
-        <pre>{{ selectedVolumeInfo }}</pre>
-        <button class="btn secondary btn-sm" (click)="closeInfo()">Close</button>
+    <!-- Right side: Create Action Panel -->
+    <div class="create-sidebar">
+      <div class="create-card glass-panel">
+        <div class="create-icon-wrapper">
+           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+           </svg>
+        </div>
+        <h3>Deploy Block Storage</h3>
+        <p class="create-desc">Provison a low-latency Ceph RBD volume to attach to your compute instances.</p>
+
+        <div class="form-group">
+          <label>Volume Name</label>
+          <input 
+            type="text" 
+            [(ngModel)]="newVolumeName" 
+            placeholder="e.g. database-ssd-01" 
+            class="premium-input"
+            (keyup.enter)="createVolume()"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Allocated Size (GB)</label>
+          <input 
+            type="number" 
+            [(ngModel)]="newVolumeSizeGB" 
+            min="1" max="1000" 
+            class="premium-input"
+            (keyup.enter)="createVolume()"
+          >
+        </div>
+
+        <button type="button" class="primary-gradient w-full" (click)="createVolume()" [disabled]="loading">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+          {{ loading ? 'Provisioning...' : 'Complete Deployment' }}
+        </button>
       </div>
     </div>
+
   </div>
 
 </div>

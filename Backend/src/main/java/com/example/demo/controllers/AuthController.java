@@ -1,5 +1,7 @@
 package com.example.demo.controllers;
+import com.example.demo.entities.Role;
 import com.example.demo.entities.User;
+import com.example.demo.entities.UserStatus;
 import com.example.demo.security.JwtUtils;
 import com.example.demo.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +33,12 @@ public class AuthController {
     }
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody User user) {
+        User dbUser = userService.findUserByEmail(user.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (dbUser.getStatus() != UserStatus.APPROVED) {
+            return ResponseEntity.status(403).body("Account not approved yet");
+        }
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword())
@@ -48,7 +56,16 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody User user) {
+
         user.setPassword(new BCryptPasswordEncoder().encode(user.getPassword()));
-        return ResponseEntity.ok(userService.createUser(user));
+
+        user.setStatus(UserStatus.PENDING); // 🔥 important
+        user.setRole(Role.CLIENT);
+
+        userService.createUser(user);
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Registration submitted. Waiting for admin approval."
+        ));
     }
 }

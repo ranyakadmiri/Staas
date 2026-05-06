@@ -74,4 +74,19 @@ public class CephSshService {
         String full = "sudo bash -lc '" + escaped + "'";
         return executeOrThrow(full);
     }
+    public Session createSession() {
+        try {
+            JSch jsch = new JSch();
+            jsch.addIdentity(PRIVATE_KEY);
+
+            Session session = jsch.getSession(USER, HOST, PORT);
+            session.setConfig("StrictHostKeyChecking", "no");
+            session.connect(10000);
+
+            return session;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create SSH session", e);
+        }
+    }
 }

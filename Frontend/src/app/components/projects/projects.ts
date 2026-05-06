@@ -30,6 +30,12 @@ ngOnInit(){
 openProject(projectId:number){
   this.router.navigate(['/buckets', projectId]);
 }
+openFiles(projectId:number){
+  this.router.navigate(['/file-shares', projectId]);
+}
+openBlock(projectId:number){
+  this.router.navigate(['/iscsii-storage', projectId]);
+}
 loadProjects(){
 
  this.api.getProjects().subscribe({

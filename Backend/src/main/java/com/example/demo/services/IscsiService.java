@@ -4,12 +4,16 @@ import com.example.demo.dto.IscsiVolumeDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Service
 @RequiredArgsConstructor
 public class IscsiService {
 
     private final BlockStorageService blockStorageService;
     private final CephSshService sshService;
+    private final EsxiService esxiService;
 
     // Change these to match your lab
     private static final String GATEWAY_NAME = "ceph-node-1";
@@ -21,32 +25,36 @@ public class IscsiService {
      * synchronize so you do NOT run multiple gwcli changes in parallel.
      */
     public synchronized String createIscsiVolume(IscsiVolumeDTO dto) {
+
         String volumeName = dto.getName();
         String targetIqn = IQN_PREFIX + volumeName;
         String initiatorIqn = dto.getInitiatorIqn();
         String pool = blockStorageService.getPool();
 
-        // 1) Create RBD volume if it does not exist
+        // 🔥 STEP 0 — CAPTURE EXISTING DISKS (VERY IMPORTANT)
+        Set<String> before = new HashSet<>(esxiService.listDisks());
+
+        // 1) Create RBD volume
         if (!blockStorageService.volumeExists(volumeName)) {
             blockStorageService.createVolume(volumeName, dto.getSizeGB());
         }
 
-        // 2) Configure gwcli
+        // 2) Configure iSCSI
         String script = """
-                gwcli <<'EOF'
-                cd /iscsi-targets
-                create %s
-                cd %s/gateways
-                create %s %s
-                cd /disks
-                create pool=%s image=%s
-                cd /iscsi-targets/%s/hosts
-                create %s
-                cd %s
-                disk add %s/%s
-                exit
-                EOF
-                """.formatted(
+        gwcli <<'EOF'
+        cd /iscsi-targets
+        create %s
+        cd %s/gateways
+        create %s %s
+        cd /disks
+        create pool=%s image=%s
+        cd /iscsi-targets/%s/hosts
+        create %s
+        cd %s
+        disk add %s/%s
+        exit
+        EOF
+        """.formatted(
                 targetIqn,
                 targetIqn,
                 GATEWAY_NAME, GATEWAY_IP,
@@ -59,13 +67,26 @@ public class IscsiService {
 
         String output = sshService.executeBash(script);
 
+        try {
+
+            // 🔥 STEP 3 — DETECT NEW DISK (CORRECT METHOD)
+            String disk = esxiService.detectNewDisk(before);
+           // String disk = esxiService.detectDiskByIqn(targetIqn);
+            // 🔥 STEP 4 — CREATE DATASTORE
+            esxiService.createDatastore(volumeName, disk);
+
+        } catch (Exception e) {
+            System.err.println("⚠️ Datastore creation failed: " + e.getMessage());
+        }
+
         return """
-                iSCSI volume created successfully.
-                Volume: %s
-                Target IQN: %s
-                Gateway IP: %s
-                Initiator IQN: %s
-                """.formatted(volumeName, targetIqn, GATEWAY_IP, initiatorIqn) + "\n" + output;
+        iSCSI volume created successfully.
+        Volume: %s
+        Target IQN: %s
+        Gateway IP: %s
+        Initiator IQN: %s
+        """.formatted(volumeName, targetIqn, GATEWAY_IP, initiatorIqn)
+                + "\n" + output;
     }
 
     public synchronized String deleteIscsiVolume(String volumeName, String initiatorIqn) {

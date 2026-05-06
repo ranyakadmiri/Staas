@@ -1,0 +1,144 @@
+<div class="storage-container">
+
+  <!-- HEADER -->
+  <div class="objects-header">
+    <div class="header-content-wrapper">
+      <div class="breadcrumb">
+        <span class="path-root">Projects</span>
+        <span class="separator-icon">/</span>
+        <span class="path-current">File Shares</span>
+      </div>
+      <span class="subtitle-text">Manage your CephFS storage</span>
+    </div>
+  </div>
+
+  <!-- ALERTS -->
+  <div *ngIf="success" class="alert-success">
+    ✔ {{ success }}
+  </div>
+
+  <div *ngIf="error" class="alert-error">
+    ✖ {{ error }}
+  </div>
+
+  <div class="main-content-layout">
+
+    <!-- LEFT: SHARES LIST -->
+    <div>
+
+      <div class="glass-panel grid-card">
+        <div class="section-title">
+          <h2>File Shares</h2>
+          <span class="badge">{{ shares.length }}</span>
+        </div>
+
+        <div *ngIf="loading" class="skeleton-wrap">
+          <div class="skeleton-bar"></div>
+          <div class="skeleton-bar"></div>
+        </div>
+
+        <div *ngIf="!loading && shares.length === 0" class="empty-state">
+          <div class="empty-icon-wrapper">📁</div>
+          <h3>No shares yet</h3>
+        </div>
+
+        <div class="data-list" *ngIf="shares.length > 0">
+
+          <div class="data-row"
+               *ngFor="let share of shares"
+               (click)="selectShare(share)">
+
+            <div class="vol-content">
+              <div class="vol-icon purple">📦</div>
+              <div>
+                <div class="data-name">{{ share.name }}</div>
+                <div class="font-mono text-sm">
+                  {{ share.mountTarget }}
+                </div>
+              </div>
+            </div>
+
+            <div class="data-actions">
+              <button class="action-btn danger-text"
+                      (click)="deleteShare(share.name); $event.stopPropagation()">
+                🗑
+              </button>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      <!-- DETAILS PANEL -->
+      <div *ngIf="selectedShare" class="glass-panel mt-4">
+
+        <div class="section-title">
+          <h2>{{ selectedShare.name }}</h2>
+        </div>
+
+        <div *ngIf="mountInfo" class="mb-8">
+
+          <h3>Mount Info</h3>
+
+          <pre class="esxi-code-block">
+Server: {{ mountInfo.server }}
+Path: {{ mountInfo.path }}
+
+ESXi:
+- Server: {{ mountInfo.server }}
+- Folder: {{ mountInfo.path }}
+- Version: NFS 4
+          </pre>
+
+        </div>
+
+        <input type="file" (change)="uploadFile($event)" class="mt-4">
+
+        <h3 class="mt-4">Files</h3>
+
+        <div *ngIf="files.length === 0" class="empty-state">
+          <h3>Empty share</h3>
+        </div>
+
+        <div *ngIf="files.length > 0" class="data-list">
+
+          <div class="data-row" *ngFor="let f of files">
+            <div class="data-name">{{ f.name }}</div>
+            <div>{{ f.size }}</div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- RIGHT: CREATE PANEL -->
+    <div class="create-sidebar">
+
+      <div class="glass-panel create-card">
+
+        <div class="create-icon-wrapper">➕</div>
+
+        <h3>Create Share</h3>
+
+        <div class="form-group">
+          <label>Name</label>
+          <input [(ngModel)]="newShareName"
+                 class="premium-input"
+                 placeholder="share name" />
+        </div>
+
+        <button class="primary-gradient w-full"
+                (click)="createShare()"
+                [disabled]="loading">
+          Create Share
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+</div>

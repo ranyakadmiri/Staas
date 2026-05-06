@@ -9,6 +9,8 @@ import { Credentials } from './components/credentials/credentials';
 import { BlockStorage } from './components/block-storage/block-storage';
 import { FileStorage } from './components/file-storage/file-storage';
 import { IscsiStorage } from './components/iscsi-storage/iscsi-storage';
+import { FileShares } from './components/file-shares/file-shares';
+import { AdminUsers } from './components/admin-users/admin-users';
 
 export const routes: Routes = [ { path: '', component: Login },
   { path: 'projects', component: Projects },
@@ -19,4 +21,8 @@ export const routes: Routes = [ { path: '', component: Login },
   { path: 'objects/:projectId/:bucketName', component: Objects },
 { path: 'block-storage', component: BlockStorage },
 { path: 'file-storage',  component: FileStorage  },
-{ path: 'iscsii-storage',  component: IscsiStorage  }];
+{ path: 'iscsii-storage/:projectId',  component: IscsiStorage  },
+{ path: 'file-shares/:projectId',  component: FileShares },
+{ path: 'admin',  component: AdminUsers }
+
+];

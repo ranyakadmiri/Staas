@@ -1,0 +1,101 @@
+<div class="admin-container">
+
+  <div class="header">
+    <h1>Admin Dashboard</h1>
+    <p>Manage user approvals</p>
+  </div>
+
+  <!-- LOADING -->
+  <div *ngIf="loading" class="loading-spinner">
+    <div class="spinner"></div>
+    <p>Loading pending users...</p>
+  </div>
+
+  <!-- ERROR -->
+  <div *ngIf="errorMessage" class="alert alert-error">
+    {{ errorMessage }}
+  </div>
+
+  <!-- SUCCESS -->
+  <div *ngIf="successMessage" class="alert alert-success">
+    {{ successMessage }}
+  </div>
+
+  <!-- USERS -->
+  <div *ngIf="!loading" class="users-table-container">
+
+    <!-- EMPTY STATE -->
+    <div *ngIf="pendingUsers.length === 0" class="empty-state">
+      <div class="empty-icon">✅</div>
+      <h3>No Pending Users</h3>
+      <p>All users processed.</p>
+    </div>
+
+    <!-- TABLE -->
+    <table *ngIf="pendingUsers.length > 0" class="users-table">
+
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Email</th>
+          <th>Username</th>
+          <th>Status</th>
+          <th>Registered</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+
+        <tr *ngFor="let user of pendingUsers">
+
+          <td>{{ user.id }}</td>
+
+          <td>{{ user.email }}</td>
+
+          <!-- 🔥 FIXED -->
+          <td>{{ user.username || 'N/A' }}</td>
+
+          <td>
+            <span [class]="getStatusBadgeClass(user.status)">
+              {{ user.status }}
+            </span>
+          </td>
+
+          <td>
+            {{ user.createdAt ? (user.createdAt | date:'medium') : 'N/A' }}
+          </td>
+
+          <td class="actions">
+
+            <!-- APPROVE -->
+            <button 
+              class="btn btn-approve"
+              (click)="approveUser(user.id)"
+              [disabled]="processingUserId === user.id">
+
+              <span *ngIf="processingUserId === user.id">⏳</span>
+              <span *ngIf="processingUserId !== user.id">✓ Approve</span>
+
+            </button>
+
+            <!-- REJECT -->
+            <button 
+              class="btn btn-reject"
+              (click)="rejectUser(user.id)"
+              [disabled]="processingUserId === user.id">
+
+              <span *ngIf="processingUserId === user.id">⏳</span>
+              <span *ngIf="processingUserId !== user.id">✗ Reject</span>
+
+            </button>
+
+          </td>
+
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+</div>

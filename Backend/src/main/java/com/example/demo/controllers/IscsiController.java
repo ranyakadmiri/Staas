@@ -37,15 +37,21 @@ public class IscsiController {
 
     @GetMapping("/targets")
     public ResponseEntity<?> targets() {
+
+        String raw = iscsiService.listTargets();
+
         return ResponseEntity.ok(Map.of(
-                "targets", iscsiService.listTargets()
+                "targets", raw.split("\n")
         ));
     }
 
     @GetMapping("/disks")
     public ResponseEntity<?> disks() {
+
+        String raw = iscsiService.listDisks();
+
         return ResponseEntity.ok(Map.of(
-                "disks", iscsiService.listDisks()
+                "disks", raw.split("\n")
         ));
     }
 

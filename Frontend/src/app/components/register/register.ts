@@ -24,7 +24,7 @@ constructor(private api:Api, private router:Router){}
     this.api.register(this.user).subscribe({
 
       next:(res)=>{
-        alert("User created successfully");
+        alert("Request sent. Wait for admin approval.");
         this.router.navigate(['/']);
       },
 

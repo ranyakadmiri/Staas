@@ -3,159 +3,152 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { Api } from '../../services/api';
-
-interface IscsiDisk {
-  name: string;
-  pool: string;
-  sizeMB: number;
-}
+import { ActivatedRoute } from '@angular/router';
 
 @Component({
   selector: 'app-iscsi-storage',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './iscsi-storage.html',
-  styleUrl: './iscsi-storage.css',
-})
-export class IscsiStorage implements OnInit {
+  styleUrls: ['./iscsi-storage.css'],
+})export class IscsiStorage implements OnInit {
 
-  // ── Data ────────────────────────────────────────────────────────────
-  disks: string = '';
-  targets: string = '';
-  esxiHelp: string = '';
+  // 🔥 PROJECT ID
+  projectId!: number;
 
-  // ── Form ────────────────────────────────────────────────────────────
-  newDiskName = '';
-  newDiskSize = 10;
-  initiatorIqn = 'iqn.1998-01.com.vmware:localhost.localdomain:1218095324:65';
+  // DATA
+  volumes: any[] = [];
+  selectedEvents: any[] = [];
 
-  // ── UI state ────────────────────────────────────────────────────────
-  // Granular loading flags — no more single boolean causing stuck states
-  loadingData    = false;
-  loadingCreate  = false;
-  deletingDisk:  string | null = null; // holds the name being deleted
+  // FORM
+  newVolume = {
+    name: '',
+    sizeGB: 10,
+    initiatorIqn: 'iqn.1998-01.com.vmware:localhost.localdomain:1218095324:65'
+  };
+
+  // UI
+  loading = false;
+  creating = false;
+  deleting: string | null = null;
 
   toast: { message: string; type: 'success' | 'error' } | null = null;
-  private toastTimer: any;
 
-  showHelp = false;
+  constructor(private api: Api, private route: ActivatedRoute) {}
 
-  constructor(private api: Api) {}
+ngOnInit(): void {
+  this.projectId = Number(this.route.snapshot.paramMap.get('projectId'));
+  this.loadVolumes();
 
-  ngOnInit(): void {
-    this.loadData();
-  }
 
-  // ── Data loading ────────────────────────────────────────────────────
+}
 
-  loadData(): void {
-    this.loadingData = true;
-    this.clearToast();
 
-    // forkJoin waits for BOTH calls — loading ends only when both complete
-    forkJoin({
-      targets: this.api.listIscsiTargets(),
-      disks:   this.api.listIscsiDisks(),
-    }).subscribe({
-      next: ({ targets, disks }) => {
-        this.targets     = targets.targets;
-        this.disks       = disks.disks;
-        this.loadingData = false;
+  // ───────── LOAD ─────────
+  loadVolumes(): void {
+    this.loading = true;
+
+    this.api.listBlockVolumes(this.projectId).subscribe({
+      next: (res) => {
+        this.volumes = res || [];
+        this.loading = false;
       },
       error: () => {
-        this.showToast('Failed to load iSCSI data', 'error');
-        this.loadingData = false;
+        this.showToast('Failed to load volumes', 'error');
+        this.loading = false;
       },
     });
   }
 
-  // ── Create ──────────────────────────────────────────────────────────
+  // ───────── CREATE ─────────
+createVolume(): void {
+  if (!this.newVolume.name.trim() || this.creating) return;
 
-  createDisk(): void {
-    if (!this.newDiskName.trim() || this.loadingCreate) return;
+  this.creating = true;
 
-    this.loadingCreate = true;
-    this.clearToast();
+  const name = this.newVolume.name.trim();
 
-    this.api.createIscsiVolume(
-      this.newDiskName.trim(),
-      this.newDiskSize,
-      this.initiatorIqn
-    ).subscribe({
-      next: (res: any) => {
-        this.esxiHelp    = res.esxi;
-        this.showHelp    = true;
-        this.newDiskName = '';
-        this.newDiskSize = 10;
-        this.loadingCreate = false;
-        this.showToast('iSCSI disk created successfully', 'success');
-        this.loadData(); // refresh list after state is already reset
+  this.showToast('Provisioning started (can take ~1 min)...', 'success');
+
+  this.api.createBlockVolume(this.projectId, this.newVolume).subscribe({
+    next: () => {
+
+      this.newVolume = { name: '', sizeGB: 10 , initiatorIqn: 'iqn.1998-01.com.vmware:localhost.localdomain:1218095324:65'};
+      this.creating = false;
+
+      // 🔥 start polling THIS volume only
+      this.pollVolumeStatus(name);
+
+    },
+    error: (err) => {
+      console.error(err);
+      this.showToast(err.error?.error || 'Failed to create volume', 'error');
+      this.creating = false;
+    },
+  });
+}
+pollVolumeStatus(name: string) {
+
+  const interval = setInterval(() => {
+
+    this.api.getBlockVolume(this.projectId, name).subscribe({
+      next: (volume) => {
+
+        this.loadVolumes(); // refresh list
+
+        if (volume.status === 'READY') {
+          clearInterval(interval);
+          this.showToast(`Volume "${name}" READY`, 'success');
+        }
+
+        if (volume.status === 'ERROR') {
+          clearInterval(interval);
+          this.showToast(volume.errorMessage || 'Provisioning failed', 'error');
+        }
+
       },
-      error: (err) => {
-        this.showToast(err.error?.error || 'Failed to create disk', 'error');
-        this.loadingCreate = false;
-      },
+      error: () => {
+        clearInterval(interval);
+      }
     });
-  }
 
-  // ── Delete ──────────────────────────────────────────────────────────
+  }, 4000); // every 4s
+}
 
-  deleteDisk(name: string): void {
-    if (!confirm(`Permanently delete iSCSI disk "${name}"?`)) return;
-    if (this.deletingDisk) return; // prevent double-click
+  // ───────── DELETE ─────────
+  deleteVolume(name: string): void {
+    if (!confirm(`Delete "${name}"?`)) return;
 
-    this.deletingDisk = name;
-    this.clearToast();
+    this.deleting = name;
 
-    this.api.deleteIscsiVolume(name, this.initiatorIqn).subscribe({
+    this.api.deleteBlockVolume(this.projectId, name).subscribe({
       next: () => {
-        this.showToast(`Disk "${name}" deleted`, 'success');
-        this.deletingDisk = null;
-        this.loadData();
+        this.showToast('Deleted', 'success');
+        this.deleting = null;
+        this.loadVolumes();
       },
       error: () => {
-        this.showToast(`Failed to delete "${name}"`, 'error');
-        this.deletingDisk = null;
+        this.showToast('Delete failed', 'error');
+        this.deleting = null;
       },
     });
   }
 
-  // ── ESXi Help ────────────────────────────────────────────────────────
-
-  fetchEsxiHelp(name: string): void {
-    this.api.getEsxiHelp(name).subscribe({
-      next: (res: any) => {
-        this.esxiHelp = res.help;
-        this.showHelp = true;
+  // ───────── EVENTS ─────────
+  loadEvents(name: string): void {
+    this.api.getBlockVolumeEvents(this.projectId, name).subscribe({
+      next: (res) => {
+        this.selectedEvents = res || [];
       },
-      error: () => this.showToast('Failed to load ESXi help', 'error'),
+      error: () => {
+        this.showToast('Failed to load events', 'error');
+      },
     });
   }
 
-  toggleHelp(): void {
-    this.showHelp = !this.showHelp;
-  }
-
-  // ── Toast ────────────────────────────────────────────────────────────
-
-  private showToast(message: string, type: 'success' | 'error'): void {
-    clearTimeout(this.toastTimer);
+  // ───────── TOAST ─────────
+  private showToast(message: string, type: 'success' | 'error') {
     this.toast = { message, type };
-    this.toastTimer = setTimeout(() => (this.toast = null), 4000);
-  }
-
-  private clearToast(): void {
-    clearTimeout(this.toastTimer);
-    this.toast = null;
-  }
-
-  // ── Helpers ──────────────────────────────────────────────────────────
-
-  get isFormValid(): boolean {
-    return this.newDiskName.trim().length > 0 && this.newDiskSize > 0;
-  }
-
-  parseDiskLines(raw: string): string[] {
-    return raw ? raw.split('\n').filter(l => l.trim()) : [];
+    setTimeout(() => (this.toast = null), 3000);
   }
 }

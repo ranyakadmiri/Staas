@@ -1,71 +1,146 @@
 <div class="objects-container">
+  
+  <!-- Top Navigation & Search Bar -->
+  <div class="objects-header">
+    <div class="breadcrumb">
+      <span class="path-root">Projects</span>
+      <svg xmlns="http://www.w3.org/2000/svg" class="separator-icon" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+      </svg>
+      <span class="path-current">{{ bucketName }}</span>
+    </div>
 
-  <h2>Objects in <span class="bucket-name">{{ bucketName }}</span></h2>
- <!-- ⭐ Bucket Stats -->
+    <!-- Search Input -->
+    <div class="search-container">
+      <svg xmlns="http://www.w3.org/2000/svg" class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input type="text" [(ngModel)]="searchTerm" placeholder="Search objects in {{ bucketName }}..." class="search-input">
+    </div>
+  </div>
 
+  <!-- ⭐ Bucket Stats -->
   <div class="stats-grid">
-
     <div class="stat-card">
-      <h4>Total Objects</h4>
-      <p>{{bucketStats.objectCount || 0}}</p>
+      <div class="stat-icon-wrapper blue">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      </div>
+      <div class="stat-info">
+        <h4>Total Objects</h4>
+        <p>{{bucketStats.objectCount || 0}}</p>
+      </div>
     </div>
 
     <div class="stat-card">
-      <h4>Total Storage</h4>
-      <p>{{bucketStats.totalSizeMB || 0}} MB</p>
+      <div class="stat-icon-wrapper purple">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+           <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+        </svg>
+      </div>
+      <div class="stat-info">
+        <h4>Total Storage</h4>
+        <p>{{bucketStats.totalSizeMB || 0}} MB</p>
+      </div>
     </div>
 
     <div class="stat-card">
-      <h4>Largest Object</h4>
-      <p>{{bucketStats.largestObject || 'N/A'}}</p>
+      <div class="stat-icon-wrapper orange">
+         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+         </svg>
+      </div>
+      <div class="stat-info">
+        <h4>Largest Object</h4>
+        <p class="truncate">{{bucketStats.largestObject || 'N/A'}}</p>
+      </div>
     </div>
 
     <div class="stat-card">
-      <h4>Last Uploaded</h4>
-      <p>{{bucketStats.lastObject || 'N/A'}}</p>
+      <div class="stat-icon-wrapper indigo">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <div class="stat-info">
+        <h4>Last Uploaded</h4>
+        <p class="truncate">{{bucketStats.lastObject || 'N/A'}}</p>
+      </div>
     </div>
-
   </div>
-  <div class="objects-card">
 
-    <table>
+  <div class="main-content-layout">
+    <!-- Objects File List -->
+    <div class="objects-card glass-panel">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Size</th>
+            <th>Last Modified</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Empty State -->
+          <tr *ngIf="filteredObjects.length === 0">
+             <td colspan="4" class="empty-state">
+                No objects found.
+             </td>
+          </tr>
+          
+          <tr *ngFor="let obj of filteredObjects">
+            <td>
+               <div class="object-name-wrapper">
+                 <svg class="file-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                   <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                 </svg>
+                 <span class="object-name">{{obj.name}}</span>
+               </div>
+            </td>
+            <td class="text-muted">{{obj.size}} B</td>
+            <td class="text-muted">{{obj.lastModified | date:'MMM d, y, h:mm a'}}</td>
+            <td>
+              <button class="action-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                   <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                </svg>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Size</th>
-          <th>Last Modified</th>
-        </tr>
-      </thead>
+    <!-- Upload Section -->
+    <div class="upload-sidebar">
+      <div class="upload-card glass-panel">
+        <div class="upload-icon-wrapper">
+           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+             <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+           </svg>
+        </div>
+        <h3>Upload File</h3>
+        <p class="upload-desc">Select a file to securely upload to your cloud bucket.</p>
 
-      <tbody>
+        <label class="file-drop-zone">
+          <input type="file" (change)="onFileSelected($event)" class="file-input-hidden"/>
+          <span class="file-select-btn" *ngIf="!selectedFile">Choose a file</span>
+          <span class="file-selected-text" *ngIf="selectedFile">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            {{ selectedFile.name }}
+          </span>
+        </label>
 
-        <tr *ngFor="let obj of objects">
-
-          <td class="object-name">{{obj.name}}</td>
-          <td>{{obj.size}} bytes</td>
-          <td>{{obj.lastModified | date:'medium'}}</td>
-
-        </tr>
-
-      </tbody>
-
-    </table>
-
-  </div>
-
-  <!-- Upload Section -->
-
-  <div class="upload-card">
-
-    <h3>Upload File</h3>
-
-    <input type="file" (change)="onFileSelected($event)" class="file-input"/>
-
-    <button type="button" (click)="upload()" class="upload-btn">
-      Upload
-    </button>
-
+        <button type="button" (click)="upload()" class="upload-btn primary-gradient">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          Start Upload
+        </button>
+      </div>
+    </div>
   </div>
 
 </div>

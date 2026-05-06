@@ -31,6 +31,10 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    @Enumerated(EnumType.STRING)
+    private UserStatus status;
+
+
 
 }
 

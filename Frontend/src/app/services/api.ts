@@ -2,6 +2,10 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { AuthService } from './auth-service';
 
+import { FileShare, MountInfo, FileEntry } from '../models/file-share.model';
+import { Observable } from 'rxjs';
+import { User } from '../models/user.model';
+
 @Injectable({
   providedIn: 'root',
 })
@@ -24,7 +28,18 @@ export class Api {
       })
     };
   }
+// ADMIN USERS
+getPendingUsers(): Observable<User[]> {
+  return this.http.get<User[]>(`${this.baseUrl}/admin/pending-users`, this.getHeaders());
+}
 
+approveUser(id: number): Observable<string> {
+  return this.http.post<string>(`${this.baseUrl}/admin/approve/${id}`, {}, this.getHeaders());
+}
+
+rejectUser(id: number): Observable<string> {
+  return this.http.post<string>(`${this.baseUrl}/admin/reject/${id}`, {}, this.getHeaders());
+}
   // ========================
   // PROJECTS
   // ========================
@@ -195,11 +210,15 @@ uploadToShare(dir: string, file: File) {
   );
 }
 // ========================
-// iSCSI STORAGE
+// iSCSI STORAGE (CLEAN)
 // ========================
 
 createIscsiVolume(name: string, sizeGB: number, initiatorIqn: string) {
-  return this.http.post(
+  return this.http.post<{
+    message: string;
+    details: string;
+    esxi: string;
+  }>(
     `${this.baseUrl}/iscsi/create`,
     { name, sizeGB, initiatorIqn },
     this.getHeaders()
@@ -207,29 +226,157 @@ createIscsiVolume(name: string, sizeGB: number, initiatorIqn: string) {
 }
 
 deleteIscsiVolume(name: string, initiatorIqn: string) {
-  return this.http.delete(
+  return this.http.delete<{
+    message: string;
+    details: string;
+  }>(
     `${this.baseUrl}/iscsi/delete?name=${name}&initiatorIqn=${initiatorIqn}`,
     this.getHeaders()
   );
 }
 
 listIscsiTargets() {
-  return this.http.get<any>(
+  return this.http.get<{
+    targets: string[];
+  }>(
     `${this.baseUrl}/iscsi/targets`,
     this.getHeaders()
   );
 }
 
 listIscsiDisks() {
-  return this.http.get<any>(
+  return this.http.get<{
+    disks: string[];
+  }>(
     `${this.baseUrl}/iscsi/disks`,
     this.getHeaders()
   );
 }
 
 getEsxiHelp(name: string) {
-  return this.http.get<any>(
+  return this.http.get<{
+    help: string;
+  }>(
     `${this.baseUrl}/iscsi/esxi-help?name=${name}`,
     this.getHeaders()
   );
-}}
+}
+// ========================
+// BLOCK VOLUMES (NEW)
+// ========================
+
+createBlockVolume(projectId: number, request: any) {
+  return this.http.post<any>(
+    `${this.baseUrl}/projects/${projectId}/block-volumes`,
+    request,
+    this.getHeaders()
+  );
+}
+
+listBlockVolumes(projectId: number) {
+  return this.http.get<any>(
+    `${this.baseUrl}/projects/${projectId}/block-volumes`,
+    this.getHeaders()
+  );
+}
+
+getBlockVolume(projectId: number, name: string) {
+  return this.http.get<any>(
+    `${this.baseUrl}/projects/${projectId}/block-volumes/${name}`,
+    this.getHeaders()
+  );
+}
+
+deleteBlockVolume(projectId: number, name: string) {
+  return this.http.delete<any>(
+    `${this.baseUrl}/projects/${projectId}/block-volumes/${name}`,
+    this.getHeaders()
+  );
+}
+
+getBlockVolumeEvents(projectId: number, name: string) {
+  return this.http.get<any>(
+    `${this.baseUrl}/projects/${projectId}/block-volumes/${name}/events`,
+    this.getHeaders()
+  );
+}
+// ========================
+// FILE SHARES (CephFS + NFS)
+// ========================
+
+// CREATE SHARE
+createProjectShare(projectId: number, name: string) {
+  return this.http.post<FileShare>(
+    `${this.baseUrl}/projects/${projectId}/shares`,
+    { name },
+    this.getHeaders()
+  );
+}
+
+// LIST SHARES
+listProjectShares(projectId: number) {
+  return this.http.get<FileShare[]>(
+    `${this.baseUrl}/projects/${projectId}/shares`,
+    this.getHeaders()
+  );
+}
+
+// GET SHARE
+getProjectShare(projectId: number, name: string) {
+  return this.http.get<FileShare>(
+    `${this.baseUrl}/projects/${projectId}/shares/${name}`,
+    this.getHeaders()
+  );
+}
+
+// MOUNT INFO
+getProjectShareMountInfo(projectId: number, name: string) {
+  return this.http.get<MountInfo>(
+    `${this.baseUrl}/projects/${projectId}/shares/${name}/mount`,
+    this.getHeaders()
+  );
+}
+
+// BROWSE FILES
+browseProjectShare(projectId: number, name: string) {
+  return this.http.get<FileEntry[]>(
+    `${this.baseUrl}/projects/${projectId}/shares/${name}/browse`,
+    this.getHeaders()
+  );
+}
+
+// SIZE
+getProjectShareSize(projectId: number, name: string) {
+  return this.http.get<{ name: string; size: string }>(
+    `${this.baseUrl}/projects/${projectId}/shares/${name}/size`,
+    this.getHeaders()
+  );
+}
+
+// DELETE SHARE
+deleteProjectShare(projectId: number, name: string) {
+  return this.http.delete(
+    `${this.baseUrl}/projects/${projectId}/shares/${name}`,
+    this.getHeaders()
+  );
+}
+
+// UPLOAD FILE
+uploadToProjectShare(projectId: number, name: string, file: File) {
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const token = this.authService.getToken();
+
+  return this.http.post(
+    `${this.baseUrl}/projects/${projectId}/shares/${name}/upload`,
+    formData,
+    {
+      headers: new HttpHeaders({
+        Authorization: `Bearer ${token}`
+      })
+    }
+  );
+}
+}

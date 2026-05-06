@@ -19,6 +19,15 @@ export class Objects {
   projectId!: number;
 
   selectedFile!: File;
+  searchTerm: string = '';
+
+  get filteredObjects() {
+    if (!this.searchTerm) {
+      return this.objects;
+    }
+    const lowerTerm = this.searchTerm.toLowerCase();
+    return this.objects.filter(obj => obj.name.toLowerCase().includes(lowerTerm));
+  }
 
   constructor(private api: Api, private route: ActivatedRoute,private cd: ChangeDetectorRef) {}
 
