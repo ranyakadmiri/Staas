@@ -237,13 +237,74 @@ public class EsxiService {
             throw new RuntimeException("govc execution error", e);
         }
     }
-    public void expandDatastore(String datastoreName) {
+    public void appendDiskToDatastore(String datastoreName, String newDisk) {
 
-        String cmd = String.format(
-                "vmkfstools -G /vmfs/volumes/%s",
-                datastoreName
-        );
+        String base = "/vmfs/devices/disks/" + newDisk;
 
-        ssh.executeOrThrow(cmd);
+        // Step 1: create GPT label on new disk
+        ssh.executeOrThrow("partedUtil mklabel " + base + " gpt");
+
+        // Step 2: get usable sectors
+        String usable = ssh.executeOrThrow(
+                "partedUtil getUsableSectors " + base).trim();
+        long end = Long.parseLong(usable.split("\\s+")[1]);
+
+        // Step 3: create VMFS partition
+        ssh.executeOrThrow(String.format(
+                "partedUtil setptbl %s gpt \"1 2048 %d AA31E02A400F11DB9590000C2911D1B8 0\"",
+                base, end));
+
+        // Step 4: refresh
+        ssh.executeOrThrow("vmkfstools -V");
+        sleep(3000);
+
+        // Step 5: find head disk NAA id (cols[3] fix from earlier)
+        String headDisk = findDatastoreExtent(datastoreName);
+
+        // Step 6: span using raw device paths for BOTH arguments
+        // -Z <new-partition> <head-raw-device-partition>
+        // NOTE: volume name and UUID do NOT work — must use /vmfs/devices/disks/
+        ssh.executeOrThrow(String.format(
+                "echo 0 | vmkfstools -Z %s:1 /vmfs/devices/disks/%s:1",
+                base,       // new disk  (first arg)
+                headDisk    // head disk (second arg — raw device path)
+        ));
+
+        // Step 7: final refresh
+        ssh.executeOrThrow("vmkfstools -V");
     }
+    public String findDatastoreExtent(String datastoreName) {
+
+        String out = ssh.executeOrThrow("esxcli storage vmfs extent list");
+
+        for (String line : out.split("\n")) {
+
+            // Skip header and separator lines
+            if (line.trim().isEmpty() ||
+                    line.trim().startsWith("-") ||
+                    line.contains("Volume Name")) continue;
+
+            if (line.contains(datastoreName)) {
+                // Split on 2+ spaces to handle column alignment correctly
+                // Columns: Volume Name | VMFS UUID | Extent Number | Device Name | Partition
+                String[] cols = line.trim().split("\\s{2,}");
+
+                if (cols.length < 4) {
+                    throw new RuntimeException(
+                            "Unexpected extent list format: " + line);
+                }
+
+                // Log all columns to verify alignment
+                for (int i = 0; i < cols.length; i++) {
+                    System.out.println("col[" + i + "] = " + cols[i]);
+                }
+
+                return cols[3].trim(); // Device Name = NAA id
+            }
+        }
+
+        throw new RuntimeException(
+                "Could not find datastore extent for " + datastoreName);
+    }
+
 }

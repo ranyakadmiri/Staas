@@ -286,16 +286,65 @@ public class BlockVolumeService {
             Thread.sleep(ms);
         } catch (InterruptedException ignored) {}
     }
-    public void expandVolumeFull(String name, int newSizeGB) {
+   public synchronized BlockVolumeResponse appendDiskToVolume(
+            Long projectId, String existingVolumeName, CreateBlockVolumeRequest dto) {
 
-        // 1️⃣ Expand in Ceph
-        blockStorageService.expandVolume(name, newSizeGB);
+        // Load the existing volume (for its datastore name)
+        BlockVolume existing = repository.findByProjectIdAndName(projectId, existingVolumeName)
+                .orElseThrow(() -> new IllegalArgumentException("Base volume not found"));
 
-        // 2️⃣ Rescan ESXi
-        esxiService.rescan();
+        validateName(dto.getName());
+
+        String volumeKey = buildVolumeKey(projectId, dto.getName());
+        String targetIqn = IQN_PREFIX + volumeKey;
+
+        // Snapshot disks BEFORE exposing the new LUN
+        Set<String> disksBefore = new HashSet<>(esxiService.listDisks());
+
+        // 1. Create new RBD image
+        if (!blockStorageService.volumeExists(volumeKey)) {
+            blockStorageService.createVolume(volumeKey, dto.getSizeGB());
+        }
+
+        // 2. Create iSCSI target + gateway + disk + host mapping
+        runGwcli(existing, """
+        cd /iscsi-targets
+        create %s
+        """.formatted(targetIqn));
+
+        runGwcli(existing, """
+        cd /iscsi-targets/%s/gateways
+        create %s %s
+        """.formatted(targetIqn, GATEWAY_NAME, GATEWAY_IP));
+
+        runGwcli(existing, """
+        cd /disks
+        create pool=%s image=%s
+        """.formatted(blockStorageService.getPool(), volumeKey));
+
+        runGwcli(existing, """
+        cd /iscsi-targets/%s/hosts
+        create %s
+        """.formatted(targetIqn, existing.getInitiatorIqn()));
+
+        runGwcli(existing, """
+        cd /iscsi-targets/%s/hosts/%s
+        disk add %s/%s
+        """.formatted(targetIqn, existing.getInitiatorIqn(),
+                blockStorageService.getPool(), volumeKey));
+
+        // 3. Wait for LUN, then detect new disk on ESXi
+        // (reuse waitForLunReady with a temporary volume object if needed)
         sleep(5000);
+        esxiService.rescan();
+        sleep(3000);
 
-        // 3️⃣ Expand VMFS
-        esxiService.expandDatastore(name);
+        String newDisk = esxiService.detectNewDisk(disksBefore);
+
+        // 4. Append disk as VMFS extent — NOT a new datastore
+        esxiService.appendDiskToDatastore(existing.getDatastoreName(), newDisk);
+
+        // Optionally: persist the new extent as a separate entity or just return
+        return toResponse(existing);
     }
 }

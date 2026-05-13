@@ -1,5 +1,6 @@
 package com.example.demo.controllers;
 
+import com.example.demo.dto.BlockVolumeResponse;
 import com.example.demo.dto.CreateBlockVolumeRequest;
 import com.example.demo.services.BlockVolumeService;
 import com.example.demo.services.ProvisionEventService;
@@ -46,5 +47,15 @@ public class BlockVolumeController {
                                     @PathVariable String name) {
         blockVolumeService.deleteVolume(projectId, name);
         return ResponseEntity.ok(Map.of("message", "Deleted"));
+    }
+    @PostMapping("/{name}/extents")
+    public ResponseEntity<BlockVolumeResponse> appendExtent(
+            @PathVariable Long projectId,
+            @PathVariable String name,
+            @RequestBody CreateBlockVolumeRequest dto) {
+
+        return ResponseEntity.ok(
+                blockVolumeService.appendDiskToVolume(projectId, name, dto)
+        );
     }
 }
