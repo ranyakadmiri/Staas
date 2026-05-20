@@ -4,13 +4,14 @@ import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
-
+@Slf4j
 @Service
 public class FileStorageService {
 
@@ -159,5 +160,23 @@ public class FileStorageService {
         session.setConfig("StrictHostKeyChecking", "no");
         session.connect(5000);
         return session;
+    }
+    public double getDirectorySizeGB(String name) {
+        validateName(name);
+
+        // du -sb gives exact bytes, easier to parse than -sh
+        String raw = executeCommand("du", "-sb", MOUNT_PATH + "/" + name).trim();
+
+        // output format: "1234567    /mnt/cephfs/dirname"
+        String[] parts = raw.split("\\s+");
+        if (parts.length == 0) return 0.0;
+
+        try {
+            long bytes = Long.parseLong(parts[0]);
+            return bytes / 1024.0 / 1024.0 / 1024.0;
+        } catch (NumberFormatException e) {
+            log.warn("Could not parse du output for {}: {}", name, raw);
+            return 0.0;
+        }
     }
 }

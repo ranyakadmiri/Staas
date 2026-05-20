@@ -73,6 +73,7 @@
       <!-- ACTIONS -->
       <div class="card-actions">
         <button (click)="loadEvents(v.name)">Events</button>
+         <button class="btn-extend" (click)="openExtentModal(v.name)">+ Add Disk</button>
         <button (click)="deleteVolume(v.name)">
           {{ deleting === v.name ? 'Deleting...' : 'Delete' }}
         </button>
@@ -100,5 +101,21 @@
 
 
   </div>
+<!-- EXTENT MODAL -->
+<div class="modal-overlay" *ngIf="showExtentModal" (click)="closeExtentModal()">
+  <div class="modal-panel" (click)="$event.stopPropagation()">
+    <h3>Add Disk to <span>{{ extentTarget }}</span></h3>
+    <p class="modal-subtitle">A new RBD disk will be appended to this iSCSI datastore.</p>
 
+    <label>Size (GB)</label>
+    <input type="number" [(ngModel)]="newExtent.sizeGB" placeholder="Size in GB" min="1" />
+
+    <div class="modal-actions">
+      <button class="btn-cancel" (click)="closeExtentModal()">Cancel</button>
+      <button class="btn-confirm" (click)="appendExtent()" [disabled]="extendingVolume">
+        {{ extendingVolume ? 'Appending...' : 'Append Disk' }}
+      </button>
+    </div>
+  </div>
+</div>
 </div>

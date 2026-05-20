@@ -1,40 +1,80 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+/* ═══════════════════════════════════════════
+   LIGHT MODE TOKENS (default)
+═══════════════════════════════════════════ */
 :root {
-  /* Colors */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f8fafc;
-  --bg-tertiary: #f1f5f9;
-  --bg-hover: #e2e8f0;
+  --bg-primary:    #ffffff;
+  --bg-secondary:  #f8fafc;
+  --bg-tertiary:   #f1f5f9;
+  --bg-hover:      #e2e8f0;
 
-  --text-primary: #0f172a;
+  --text-primary:   #0f172a;
   --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-muted:     #94a3b8;
 
   --border-color: #cbd5e1;
   --border-light: #e2e8f0;
 
-  --accent-blue: #3b82f6;
+  --accent-blue:   #3b82f6;
   --accent-purple: #8b5cf6;
   --accent-indigo: #4f46e5;
   --accent-orange: #f97316;
+  --accent-green:  #10b981;
 
-  /* Premium Gradients */
-  --grad-premium: linear-gradient(135deg, var(--accent-indigo) 0%, var(--accent-blue) 100%);
+  --grad-premium:       linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
   --grad-premium-hover: linear-gradient(135deg, #4338ca 0%, #2563eb 100%);
-  
-  /* Layout */
+
   --content-max-width: 1100px;
-  
-  /* Typography */
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+
+  --glass-bg:     rgba(255,255,255,0.7);
+  --glass-border: rgba(255,255,255,0.3);
 }
+
+/* ═══════════════════════════════════════════
+   DARK MODE TOKENS
+═══════════════════════════════════════════ */
+body.dark {
+  --bg-primary:    #1e2435;
+  --bg-secondary:  #141824;
+  --bg-tertiary:   #252d3f;
+  --bg-hover:      #2e3850;
+
+  --text-primary:   #f0f4ff;
+  --text-secondary: #94a3b8;
+  --text-muted:     #64748b;
+
+  --border-color: #2e3850;
+  --border-light: #2a3349;
+
+  --accent-blue:   #60a5fa;
+  --accent-purple: #a78bfa;
+  --accent-indigo: #818cf8;
+  --accent-orange: #fb923c;
+  --accent-green:  #34d399;
+
+  --grad-premium:       linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+  --grad-premium-hover: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+
+  --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -1px rgba(0,0,0,0.3);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.4), 0 4px 6px -2px rgba(0,0,0,0.3);
+  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.5), 0 10px 10px -5px rgba(0,0,0,0.3);
+
+  --glass-bg:     rgba(30,36,53,0.8);
+  --glass-border: rgba(255,255,255,0.06);
+}
+
+/* ═══════════════════════════════════════════
+   BASE STYLES
+═══════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -42,4 +82,6 @@ body {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
+

@@ -1,34 +1,43 @@
-<h2>Register</h2>
+<div class="register-page-bg">
+  <div class="register-card">
+    <div class="register-header">
+      <div class="register-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+        </svg>
+      </div>
+      <h2>Create Account</h2>
+      <p>Join NextStep Storage Platform</p>
+    </div>
 
-<form (ngSubmit)="register()">
+    <form (ngSubmit)="register()">
+      <input
+        type="text"
+        placeholder="Username"
+        [(ngModel)]="user.username"
+        name="username"
+        required
+      >
+      <input
+        type="email"
+        placeholder="Email address"
+        [(ngModel)]="user.email"
+        name="email"
+        required
+      >
+      <input
+        type="password"
+        placeholder="Password"
+        [(ngModel)]="user.password"
+        name="password"
+        required
+      >
 
-<input
-type="text"
-placeholder="Username"
-[(ngModel)]="user.username"
-name="username"
-required
->
+      <button type="submit">Create Account</button>
+    </form>
 
-<input
-type="email"
-placeholder="Email"
-[(ngModel)]="user.email"
-name="email"
-required
->
-
-<input
-type="password"
-placeholder="Password"
-[(ngModel)]="user.password"
-name="password"
-required
->
-
-
-<button type="submit">
-Register
-</button>
-
-</form>
+    <div class="login-link">
+      Already have an account? <a routerLink="/">Sign In</a>
+    </div>
+  </div>
+</div>

@@ -19,6 +19,10 @@ import { ActivatedRoute } from '@angular/router';
   // DATA
   volumes: any[] = [];
   selectedEvents: any[] = [];
+  showExtentModal = false;
+extentTarget: string | null = null;
+newExtent = { sizeGB: 10 };
+extendingVolume = false;
 
   // FORM
   newVolume = {
@@ -151,4 +155,38 @@ pollVolumeStatus(name: string) {
     this.toast = { message, type };
     setTimeout(() => (this.toast = null), 3000);
   }
+  openExtentModal(name: string): void {
+  this.extentTarget = name;
+  this.newExtent = { sizeGB: 10 };
+  this.showExtentModal = true;
 }
+
+closeExtentModal(): void {
+  this.showExtentModal = false;
+  this.extentTarget = null;
+}
+appendExtent(): void {
+  if (!this.extentTarget || this.extendingVolume) return;
+
+  this.extendingVolume = true;
+
+  const request: any = {
+    name: this.extentTarget,
+    sizeGB: this.newExtent.sizeGB,
+    initiatorIqn: this.newVolume.initiatorIqn
+  };
+
+  this.api.appendBlockVolumeExtent(this.projectId, this.extentTarget, request).subscribe({
+    next: () => {
+      this.showToast(`Disk appended to "${this.extentTarget}"`, 'success');
+      this.extendingVolume = false;
+      this.closeExtentModal();
+      this.pollVolumeStatus(this.extentTarget!);
+      this.loadVolumes();
+    },
+    error: (err: any) => {
+      this.showToast(err.error?.error || 'Failed to append disk', 'error');
+      this.extendingVolume = false;
+    }
+  });
+}}

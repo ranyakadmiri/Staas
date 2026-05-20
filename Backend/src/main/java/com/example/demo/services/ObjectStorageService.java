@@ -2,6 +2,9 @@ package com.example.demo.services;
 
 import com.example.demo.dto.BucketStatsDTO;
 import com.example.demo.entities.AccessCredential;
+import com.example.demo.repositories.BucketRepository;
+import com.example.demo.repositories.ProjectRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -17,11 +20,13 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+@RequiredArgsConstructor
 @Service
 public class ObjectStorageService {
     private static final String ENDPOINT = "http://192.168.56.11:80";
-
+    private final BucketRepository bucketRepository;       // ADD
+    private final ProjectRepository projectRepository;
+    private final RgwService rgwService;
     public S3Client buildClient(AccessCredential credential) {
 
         return S3Client.builder()
@@ -39,14 +44,28 @@ public class ObjectStorageService {
                 .build();
     }
 
-    public void createBucket(String bucketName, AccessCredential credential) {
+   /* public void createBucket(String bucketName, AccessCredential credential) {
 
         S3Client s3 = buildClient(credential);
 
         s3.createBucket(CreateBucketRequest.builder()
                 .bucket(bucketName)
                 .build());
-    }
+    }*/
+   public com.example.demo.entities.Bucket createBucket(String bucketName, AccessCredential credential) {
+
+       S3Client s3 = buildClient(credential);
+       s3.createBucket(CreateBucketRequest.builder()
+               .bucket(bucketName)
+               .build());
+       String rgwBucketId = rgwService.getBucketId(bucketName);
+       com.example.demo.entities.Bucket b = new com.example.demo.entities.Bucket();
+       b.setName(bucketName);
+       b.setProject(credential.getProject());
+       b.setRgwBucketId(rgwBucketId);
+
+       return bucketRepository.save(b);
+   }
 
     public List<String> listBuckets(AccessCredential credential) {
 
@@ -65,6 +84,8 @@ public class ObjectStorageService {
         s3.deleteBucket(DeleteBucketRequest.builder()
                 .bucket(bucketName)
                 .build());
+        bucketRepository.findByNameAndProjectId(bucketName, credential.getProject().getId())
+                .ifPresent(bucketRepository::delete);
     }
     public void uploadObject(
             String bucketName,

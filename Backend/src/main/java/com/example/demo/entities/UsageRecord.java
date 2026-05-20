@@ -5,6 +5,8 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+
 @Getter
 @Setter
 @ToString
@@ -17,12 +19,17 @@ public class UsageRecord {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String resourceType;   // STORAGE / REQUESTS / TRANSFER
+    @Enumerated(EnumType.STRING)        // ADD THIS — fixes 0/1/2 → OBJECT/BLOCK/FILE
+    private ResourceType resourceType;   // STORAGE / REQUESTS / TRANSFER
 
-    private Long usageAmount;
+    private Double usedGB;
+    private LocalDateTime recordedAt;
 
-    private LocalDateTime recordedAt = LocalDateTime.now();
+    private String billingPeriod;
 
+    @ManyToOne
+    @JoinColumn(name = "bucket_id", nullable = true)
+    private Bucket bucket;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id")
     private Project project;

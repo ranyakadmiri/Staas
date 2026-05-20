@@ -11,6 +11,7 @@ import { FileStorage } from './components/file-storage/file-storage';
 import { IscsiStorage } from './components/iscsi-storage/iscsi-storage';
 import { FileShares } from './components/file-shares/file-shares';
 import { AdminUsers } from './components/admin-users/admin-users';
+import { Billing } from './components/billing/billing';
 
 export const routes: Routes = [ { path: '', component: Login },
   { path: 'projects', component: Projects },
@@ -23,6 +24,7 @@ export const routes: Routes = [ { path: '', component: Login },
 { path: 'file-storage',  component: FileStorage  },
 { path: 'iscsii-storage/:projectId',  component: IscsiStorage  },
 { path: 'file-shares/:projectId',  component: FileShares },
-{ path: 'admin',  component: AdminUsers }
+{ path: 'admin',  component: AdminUsers },
+{ path: 'billing/:projectId', component: Billing }
 
 ];

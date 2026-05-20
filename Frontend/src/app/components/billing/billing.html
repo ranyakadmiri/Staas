@@ -1,0 +1,174 @@
+<p>billing works!</p>
+<div class="billing-container">
+
+  <!-- Header -->
+  <div class="billing-header">
+    <button class="back-btn" (click)="goBack()">← Projects</button>
+    <div>
+      <h1>Billing & Usage</h1>
+      <p class="sub">Project #{{ projectId }}</p>
+    </div>
+  </div>
+
+  <!-- Subscription card -->
+  <div class="section-card" *ngIf="!loadingSubscription">
+
+    <div class="no-plan" *ngIf="!subscription">
+      <span class="warn-icon">⚠️</span>
+      <p>No active subscription found for this project.</p>
+      <button class="create-btn" (click)="goBack()">Subscribe to a Plan</button>
+    </div>
+
+    <div *ngIf="subscription" class="plan-info-row">
+      <div class="plan-info-block">
+        <span class="info-label">Current Plan</span>
+        <span class="info-value plan-name-val">{{ planLabel() }}</span>
+      </div>
+      <div class="plan-info-block">
+        <span class="info-label">Status</span>
+        <span class="badge badge-active">{{ subscription.status }}</span>
+      </div>
+      <div class="plan-info-block">
+        <span class="info-label">Start Date</span>
+        <span class="info-value">{{ subscription.startDate }}</span>
+      </div>
+      <div class="plan-info-block">
+        <span class="info-label">End Date</span>
+        <span class="info-value">{{ subscription.endDate ?? 'Rolling' }}</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Usage this month -->
+  <div class="section-card">
+    <div class="section-title-row">
+      <h2>Usage This Month</h2>
+      <span class="period-badge">{{ subscription?.plan ? 'Active' : '' }}</span>
+    </div>
+
+    <div class="usage-loading" *ngIf="loadingUsage">Loading usage...</div>
+
+    <div *ngIf="!loadingUsage">
+
+      <div *ngIf="usageRecords.length === 0" class="empty-state">
+        No usage recorded yet. Usage is collected daily.
+      </div>
+
+      <!-- Object Storage -->
+      <div class="usage-row" *ngIf="getUsageByType('OBJECT') >= 0">
+        <div class="usage-label-row">
+          <span class="usage-type">
+            <span class="dot dot-object"></span> Object Storage
+          </span>
+          <span class="usage-gb">{{ formatGB(getUsageByType('OBJECT')) }}</span>
+        </div>
+        <div class="usage-bar-track">
+          <div class="usage-bar-fill"
+            [style.width]="usageBarWidth(getUsageByType('OBJECT'), subscription?.plan?.includedStorageGB || 100)"
+            [style.background]="usageBarColor(getUsageByType('OBJECT'), subscription?.plan?.includedStorageGB || 100)">
+          </div>
+        </div>
+        <span class="usage-cost" *ngIf="subscription?.plan?.pricePerGBObject">
+          Est. cost: {{ (getUsageByType('OBJECT') * subscription.plan.pricePerGBObject).toFixed(4) }} TND
+        </span>
+      </div>
+
+      <!-- Block Storage -->
+      <div class="usage-row" *ngIf="getUsageByType('BLOCK') >= 0">
+        <div class="usage-label-row">
+          <span class="usage-type">
+            <span class="dot dot-block"></span> Block Storage
+          </span>
+          <span class="usage-gb">{{ formatGB(getUsageByType('BLOCK')) }}</span>
+        </div>
+        <div class="usage-bar-track">
+          <div class="usage-bar-fill"
+            [style.width]="usageBarWidth(getUsageByType('BLOCK'), subscription?.plan?.includedStorageGB || 100)"
+            [style.background]="usageBarColor(getUsageByType('BLOCK'), subscription?.plan?.includedStorageGB || 100)">
+          </div>
+        </div>
+        <span class="usage-cost" *ngIf="subscription?.plan?.pricePerGBBlock">
+          Est. cost: {{ (getUsageByType('BLOCK') * subscription.plan.pricePerGBBlock).toFixed(4) }} TND
+        </span>
+      </div>
+
+      <!-- Filesystem -->
+      <div class="usage-row" *ngIf="getUsageByType('FILE') >= 0">
+        <div class="usage-label-row">
+          <span class="usage-type">
+            <span class="dot dot-file"></span> Filesystem Storage
+          </span>
+          <span class="usage-gb">{{ formatGB(getUsageByType('FILE')) }}</span>
+        </div>
+        <div class="usage-bar-track">
+          <div class="usage-bar-fill"
+            [style.width]="usageBarWidth(getUsageByType('FILE'), subscription?.plan?.includedStorageGB || 100)"
+            [style.background]="usageBarColor(getUsageByType('FILE'), subscription?.plan?.includedStorageGB || 100)">
+          </div>
+        </div>
+        <span class="usage-cost" *ngIf="subscription?.plan?.pricePerGBFilesystem">
+          Est. cost: {{ (getUsageByType('FILE') * subscription.plan.pricePerGBFilesystem).toFixed(4) }} TND
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Invoices -->
+  <div class="section-card">
+    <div class="section-title-row">
+      <h2>Invoices</h2>
+      <button class="generate-btn" (click)="generateInvoice()" [disabled]="generatingInvoice">
+        {{ generatingInvoice ? 'Generating...' : '+ Generate Invoice' }}
+      </button>
+    </div>
+
+    <div *ngIf="loadingInvoices" class="usage-loading">Loading invoices...</div>
+
+    <div *ngIf="!loadingInvoices && invoices.length === 0" class="empty-state">
+      No invoices yet. Click "Generate Invoice" to create one.
+    </div>
+
+    <table *ngIf="!loadingInvoices && invoices.length > 0">
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Period</th>
+          <th>Object</th>
+          <th>Block</th>
+          <th>Filesystem</th>
+          <th>Total</th>
+          <th>Due Date</th>
+          <th>Status</th>
+          <th>PDF</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let inv of invoices">
+          <td class="invoice-number">{{ inv.invoiceNumber }}</td>
+          <td>{{ inv.billingPeriod }}</td>
+          <td>{{ inv.objectStorageCost | number:'1.2-4' }} TND</td>
+          <td>{{ inv.blockStorageCost  | number:'1.2-4' }} TND</td>
+          <td>{{ inv.filesystemCost    | number:'1.2-4' }} TND</td>
+          <td class="total-col">{{ inv.totalAmount | number:'1.2-4' }} TND</td>
+          <td>{{ inv.dueDate }}</td>
+          <td>
+            <span class="badge" [ngClass]="statusClass(inv.status)">
+              {{ inv.status }}
+            </span>
+          </td>
+          <td>
+            <button
+              class="pdf-btn"
+              (click)="downloadPdf(inv)"
+              [disabled]="downloadingId === inv.id">
+              {{ downloadingId === inv.id ? '...' : '↓ PDF' }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>

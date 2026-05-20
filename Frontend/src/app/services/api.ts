@@ -379,4 +379,96 @@ uploadToProjectShare(projectId: number, name: string, file: File) {
     }
   );
 }
+appendBlockVolumeExtent(projectId: number, name: string, request: any) {
+  return this.http.post<any>(
+    `${this.baseUrl}/projects/${projectId}/block-volumes/${name}/extents`,
+    request,
+    this.getHeaders()
+  );
+}
+// ========================
+// BUCKET QUOTA
+// ========================
+
+getBucketQuota(bucketId: number) {
+  return this.http.get<any>(
+    `${this.baseUrl}/buckets/quota/${bucketId}`,
+    this.getHeaders()
+  );
+}
+
+createBucketQuota(bucketId: number, maxSizeGB: number, maxObjects: number) {
+  return this.http.post<any>(
+    `${this.baseUrl}/buckets/quota/${bucketId}`,
+    { maxSizeGB, maxObjects },
+    this.getHeaders()
+  );
+}
+
+updateBucketQuota(bucketId: number, maxSizeGB: number, maxObjects: number) {
+  return this.http.put<any>(
+    `${this.baseUrl}/buckets/quota/${bucketId}`,
+    { maxSizeGB, maxObjects },
+    this.getHeaders()
+  );
+}
+// ========================
+// BILLING
+// ========================
+
+getPlans() {
+  return this.http.get<any[]>(
+    `${this.baseUrl}/billing/plans`,
+    this.getHeaders()
+  );
+}
+
+subscribe(projectId: number, planId: number) {
+  return this.http.post<any>(
+    `${this.baseUrl}/billing/subscribe/${projectId}?planId=${planId}`,
+    {},
+    this.getHeaders()
+  );
+}
+
+getInvoices(projectId: number) {
+  return this.http.get<any[]>(
+    `${this.baseUrl}/billing/invoices/${projectId}`,
+    this.getHeaders()
+  );
+}
+
+downloadInvoicePdf(invoiceId: number) {
+  const token = this.authService.getToken();
+  return this.http.get(
+    `${this.baseUrl}/billing/invoices/${invoiceId}/pdf`,
+    {
+      headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
+      responseType: 'blob'
+    }
+  );
+}
+// Add these to your existing Api service
+
+getUsageByProject(projectId: number) {
+  return this.http.get<any[]>(
+    `${this.baseUrl}/billing/usage/${projectId}`,
+    this.getHeaders()
+  );
+}
+
+generateInvoiceNow(projectId: number) {
+  return this.http.post<any>(
+    `${this.baseUrl}/billing/test/generate-invoice/${projectId}`,
+    {},
+    this.getHeaders()
+  );
+}
+
+getSubscription(projectId: number) {
+  return this.http.get<any>(
+    `${this.baseUrl}/billing/subscription/${projectId}`,
+    this.getHeaders()
+  );
+}
 }

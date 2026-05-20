@@ -1,6 +1,7 @@
 package com.example.demo.controllers;
 
 import com.example.demo.dto.UpdateQuotaRequest;
+import com.example.demo.entities.AccessCredential;
 import com.example.demo.entities.BucketQuota;
 import com.example.demo.services.BucketQuotaService;
 import lombok.RequiredArgsConstructor;

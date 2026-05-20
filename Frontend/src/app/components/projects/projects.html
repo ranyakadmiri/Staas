@@ -1,103 +1,188 @@
-<div class="projects-container">
+<!-- projects.html -->
+<div class="pg-wrap">
 
-<h1>Projects</h1>
+  <!-- ── Page header ── -->
+  <div class="pg-header">
+    <div>
+      <h1 class="pg-title">Projects</h1>
+      <p class="pg-sub">Manage your storage infrastructure</p>
+    </div>
+    <button class="btn-new" (click)="showCreate = !showCreate">
+      <span class="btn-icon">+</span> New Project
+    </button>
+  </div>
 
-<!-- Project List -->
+  <!-- ── Project grid ── -->
+  <div class="project-grid" *ngIf="projects.length > 0">
+    <div class="project-card" *ngFor="let p of projects">
 
-<div class="projects-card">
+      <div class="card-top">
+        <div class="card-avatar">{{ p.name[0].toUpperCase() }}</div>
+        <div class="card-meta">
+          <span class="card-title">{{ p.name }}</span>
+          <span class="card-desc">{{ p.description || 'No description' }}</span>
+        </div>
+        <span class="card-region">{{ p.region || 'default' }}</span>
+      </div>
 
-<h2>Your Projects</h2>
+      <div class="card-stats">
+        <div class="stat">
+          <span class="stat-label">Max Buckets</span>
+          <span class="stat-val">{{ p.maxBuckets }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Max Storage</span>
+          <span class="stat-val">{{ p.maxStorageGB }} GB</span>
+        </div>
+       
+      </div>
 
-<table>
+      <div class="card-actions">
+        <button class="act-btn" (click)="openProject(p.id)" title="Object Storage">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          Buckets
+        </button>
+        <button class="act-btn" (click)="openFiles(p.id)" title="File Shares">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          Files
+        </button>
+        <button class="act-btn" (click)="openBlock(p.id)" title="Block Storage">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+          Block
+        </button>
+        <button class="act-btn act-billing" (click)="openBilling(p.id)" title="Billing">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Billing
+        </button>
+      </div>
 
-<thead>
-<tr>
-<th>Project Name</th>
-<th>Action</th>
-</tr>
-</thead>
+    </div>
+  </div>
 
-<tbody>
-
-<tr *ngFor="let p of projects">
-
-<td class="project-name">{{p.name}}</td>
-
-<td>
-<button class="open-btn" (click)="openProject(p.id)">
-Open Buckets
-</button>
-</td>
-<td>
-<button class="open-btn" (click)="openFiles(p.id)">
-Open File Shares
-</button>
-</td>
-<td>
-<button class="open-btn" (click)="openBlock(p.id)">
-Open Block Storage
-</button>
-
-
-</td>
-
-</tr>
-
-</tbody>
-
-</table>
-
-</div>
+  <!-- Empty state -->
+  <div class="empty-state" *ngIf="projects.length === 0">
+    <div class="empty-icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+    </div>
+    <p class="empty-title">No projects yet</p>
+    <p class="empty-sub">Create your first project to get started</p>
+  </div>
 
 
-<!-- Create Project -->
+  <!-- ── Create drawer ── -->
+  <div class="create-drawer" [class.open]="showCreate || step === 'plan'">
 
-<div class="create-project-card">
+    <!-- STEP 1: Project details -->
+    <div class="drawer-inner" *ngIf="step === 'form'">
 
-<h2>Create New Project</h2>
+      <div class="drawer-head">
+        <div>
+          <span class="drawer-step">New Project</span>
+          <h2 class="drawer-title">Project details</h2>
+        </div>
+        <button class="drawer-close" (click)="showCreate = false; resetForm()">✕</button>
+      </div>
 
-<div class="form-grid">
+      <div class="field-grid">
+        <div class="field full">
+          <label>Project name</label>
+          <input [(ngModel)]="project.name" placeholder="e.g. media-production">
+        </div>
+        <div class="field full">
+          <label>Description <span class="opt">optional</span></label>
+          <input [(ngModel)]="project.description" placeholder="What will you store here?">
+        </div>
+        <div class="field">
+          <label>Primary storage type</label>
+          <select [(ngModel)]="project.storageType">
+            <option value="OBJECT">Object Storage</option>
+            <option value="BLOCK">Block Storage</option>
+            <option value="FILE">File Storage</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Region</label>
+          <input [(ngModel)]="project.region" placeholder="e.g. eu-west-1">
+        </div>
+        <div class="field">
+          <label>Max buckets</label>
+          <input type="number" [(ngModel)]="project.maxBuckets">
+        </div>
+        <div class="field">
+          <label>Max storage (GB)</label>
+          <input type="number" [(ngModel)]="project.maxStorageGB">
+        </div>
+      </div>
 
-<div class="form-group">
-<label>Project Name</label>
-<input [(ngModel)]="project.name" placeholder="Example: media-storage">
-</div>
+      <div class="drawer-footer">
+        <button class="btn-cancel" (click)="showCreate = false; resetForm()">Cancel</button>
+        <button class="btn-primary" (click)="createProject()" [disabled]="creating || !project.name">
+          <span *ngIf="!creating">Continue →</span>
+          <span *ngIf="creating" class="spinner"></span>
+        </button>
+      </div>
 
-<div class="form-group">
-<label>Description</label>
-<input [(ngModel)]="project.description" placeholder="Describe the purpose of this project">
-</div>
+    </div>
 
-<div class="form-group">
-<label>Storage Type</label>
-<select [(ngModel)]="project.storageType">
-<option value="OBJECT">Object Storage</option>
-<option value="BLOCK">Block Storage</option>
-<option value="FILE">File Storage</option>
-</select>
-</div>
+    <!-- STEP 2: Plan selection -->
+    <div class="drawer-inner" *ngIf="step === 'plan'">
 
-<div class="form-group">
-<label>Region</label>
-<input [(ngModel)]="project.region" placeholder="Example: eu-west-1">
-</div>
+      <div class="drawer-head">
+        <div>
+          <span class="drawer-step">Step 2 of 2</span>
+          <h2 class="drawer-title">Choose a billing plan</h2>
+        </div>
+        <button class="drawer-close" (click)="resetForm(); showCreate = false">✕</button>
+      </div>
 
-<div class="form-group">
-<label>Maximum Buckets</label>
-<input type="number" [(ngModel)]="project.maxBuckets">
-</div>
+      <div class="plans-list">
+        <div
+          *ngFor="let plan of plans"
+          class="plan-row"
+          [class.plan-selected]="selectedPlanId === plan.id"
+          (click)="selectedPlanId = plan.id">
 
-<div class="form-group">
-<label>Maximum Storage (GB)</label>
-<input type="number" [(ngModel)]="project.maxStorageGB">
-</div>
+          <div class="plan-radio">
+            <div class="radio-dot" [class.active]="selectedPlanId === plan.id"></div>
+          </div>
 
-</div>
+          <div class="plan-info">
+            <span class="plan-name-text">{{ planLabel(plan.type, plan.durationMonths) }}</span>
+            <div class="plan-pills">
+              <span class="pill">Object {{ plan.pricePerGBObject }} TND/GB</span>
+              <span class="pill">Block {{ plan.pricePerGBBlock }} TND/GB</span>
+              <span class="pill">FS {{ plan.pricePerGBFilesystem }} TND/GB</span>
+              <span class="pill pill-green" *ngIf="plan.includedStorageGB">{{ plan.includedStorageGB }} GB incl.</span>
+            </div>
+          </div>
 
-<button class="create-btn" (click)="createProject()">
-Create Project
-</button>
+          <div class="plan-price-col">
+            <span class="plan-price-big" *ngIf="plan.type === 'PAY_AS_YOU_GO'">Usage-based</span>
+            <span class="plan-price-big" *ngIf="plan.type !== 'PAY_AS_YOU_GO'">{{ plan.flatPrice }} TND</span>
+            <span class="plan-price-per" *ngIf="plan.durationMonths">/ {{ plan.durationMonths }}mo</span>
+          </div>
 
-</div>
+        </div>
+      </div>
+
+      <div class="drawer-footer">
+        <button class="btn-cancel" (click)="step = 'form'">← Back</button>
+        <button
+          class="btn-primary"
+          (click)="confirmPlan()"
+          [disabled]="!selectedPlanId || subscribing">
+          <span *ngIf="!subscribing">Activate Project</span>
+          <span *ngIf="subscribing" class="spinner"></span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Backdrop -->
+  <div class="drawer-backdrop"
+    [class.visible]="showCreate || step === 'plan'"
+    (click)="resetForm(); showCreate = false">
+  </div>
 
 </div>

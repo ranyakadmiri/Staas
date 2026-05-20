@@ -15,7 +15,15 @@ export class Buckets {
   buckets:any[]=[];
 bucketName="";
 projectId!:number;
+ // Form
+  newBucket = {
+    name: '',
+    enableQuota: false,
+    maxSizeGB: 10,
+    maxObjects: 10000
+  };
 
+  creating = false;
 constructor(
  private api:Api,
  private route:ActivatedRoute,
@@ -57,13 +65,32 @@ loadBuckets(){
  });
 
 }
-createBucket(){
+ createBucket() {
+    if (!this.newBucket.name.trim() || this.creating) return;
+    this.creating = true;
 
- this.api.createBucket(this.projectId,this.bucketName)
- .subscribe(()=>{
-  this.loadBuckets();
- });
+    this.api.createBucket(this.projectId, this.newBucket.name.trim()).subscribe({
+      next: (res: any) => {
+        // If quota enabled AND the response includes a bucket ID, create quota
+        if (this.newBucket.enableQuota && res?.id) {
+          this.api.createBucketQuota(res.id, this.newBucket.maxSizeGB, this.newBucket.maxObjects)
+            .subscribe({
+              next: () => this.afterCreate(),
+              error: () => this.afterCreate() // bucket created, quota failed silently
+            });
+        } else {
+          this.afterCreate();
+        }
+      },
+      error: () => {
+        this.creating = false;
+      }
+    });
+  }
 
-}
-
+  private afterCreate() {
+    this.newBucket = { name: '', enableQuota: false, maxSizeGB: 10, maxObjects: 10000 };
+    this.creating = false;
+    this.loadBuckets();
+  }
 }
