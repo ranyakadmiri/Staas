@@ -201,7 +201,6 @@ public class EsxiService {
         } catch (InterruptedException ignored) {}
     }
     public void createNfsDatastore(String name, String serverIp, String remotePath) {
-
         try {
             List<String> cmd = List.of(
                     "C:\\govc\\govc.exe",
@@ -209,25 +208,26 @@ public class EsxiService {
                     "storage",
                     "nfs41",
                     "add",
-                    "-hosts", serverIp,
+                    "-hosts", serverIp,       // ← nfs41 uses -hosts (plural)
                     "-share", remotePath,
-                    "-volume-name", name
+                    "-volume-name", name,
+                    "-sec", "AUTH_SYS"        // ← matches SecType = sys in ganesha
             );
 
             ProcessBuilder pb = new ProcessBuilder(cmd);
-
-            // ✅ ENV VARS HERE
             pb.environment().put("GOVC_URL", "https://" + ESXI_HOST + "/sdk");
             pb.environment().put("GOVC_USERNAME", ESXI_USER);
             pb.environment().put("GOVC_PASSWORD", ESXI_PASS);
             pb.environment().put("GOVC_INSECURE", "true");
             pb.environment().put("GOVC_DATACENTER", "ha-datacenter");
-
             pb.redirectErrorStream(true);
 
             Process p = pb.start();
             String out = new String(p.getInputStream().readAllBytes()).trim();
             int exit = p.waitFor();
+
+            System.out.println("=== govc NFS41 output: " + out);
+            System.out.println("=== govc exit code: " + exit);
 
             if (exit != 0) {
                 throw new RuntimeException("govc failed: " + out);

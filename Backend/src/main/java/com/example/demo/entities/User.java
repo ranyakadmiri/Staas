@@ -25,6 +25,7 @@ public class User {
     private String username;
 
 
+    private String phone; // e.g. "+21698xxxxxx"
     private String password;
 
     private LocalDateTime createdAt = LocalDateTime.now();

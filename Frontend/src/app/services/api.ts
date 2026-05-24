@@ -471,4 +471,11 @@ getSubscription(projectId: number) {
     this.getHeaders()
   );
 }
+verifyOtp(mfaToken: string, otp: string) {
+  return this.http.post<{ token: string; email: string }>(
+    `${this.baseUrl}/auth/verify-otp`,
+    { mfaToken, otp }
+    // ← no headers
+  );
+}
 }

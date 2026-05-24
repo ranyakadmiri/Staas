@@ -15,7 +15,8 @@ export class Register {
   user:any = {
     email:'',
     username:'',
-    password:''
+    password:'',
+    phone:''
     
   };
 constructor(private api:Api, private router:Router){}

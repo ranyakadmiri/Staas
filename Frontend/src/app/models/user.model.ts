@@ -10,4 +10,5 @@ export interface User {
   username?: string;
   status: UserStatus;
   createdAt?: Date;
+  phone:string;
 }
