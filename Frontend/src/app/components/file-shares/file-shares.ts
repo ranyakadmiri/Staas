@@ -1,32 +1,28 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, Input, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-
 import { Api } from '../../services/api';
 import { ActivatedRoute } from '@angular/router';
-import { FileShare, FileEntry, MountInfo } from '../../models/file-share.model';
+import { FileShare, FileEntry } from '../../models/file-share.model';
 
 @Component({
   selector: 'app-file-shares',
-   standalone: true,
-  imports: [CommonModule, FormsModule],
+  standalone: true,
+  imports: [FormsModule],
   templateUrl: './file-shares.html',
   styleUrl: './file-shares.css',
 })
 export class FileShares implements OnInit {
-
   projectId!: number;
-
   shares: FileShare[] = [];
   selectedShare: FileShare | null = null;
   files: FileEntry[] = [];
-  mountInfo: MountInfo | null = null;
-
   newShareName = '';
-
   loading = false;
+  creating = false;
   error: string | null = null;
   success: string | null = null;
+  activeTab: 'linux' | 'windows' | 'macos' = 'linux';
+  copied = false;
 
   constructor(
     private api: Api,
@@ -35,27 +31,14 @@ export class FileShares implements OnInit {
   ) {}
 
   ngOnInit() {
-
     this.route.params.subscribe(params => {
-
       this.projectId = params['projectId'];
-
-      if (this.projectId) {
-        this.loadShares();
-      }
-
+      if (this.projectId) this.loadShares();
     });
-
   }
 
-  // ========================
-  // LOAD SHARES
-  // ========================
-
   loadShares() {
-
     this.loading = true;
-
     this.api.listProjectShares(this.projectId).subscribe({
       next: (res) => {
         this.shares = res;
@@ -63,85 +46,83 @@ export class FileShares implements OnInit {
         this.cd.detectChanges();
       },
       error: () => {
-        this.error = "Failed to load shares";
+        this.error = 'Failed to load shares';
         this.loading = false;
       }
     });
   }
 
-  // ========================
-  // CREATE
-  // ========================
-
   createShare() {
-
-    if (!this.newShareName.trim()) return;
+    if (!this.newShareName.trim() || this.creating) return;
+    this.creating = true;
+    this.error = null;
 
     this.api.createProjectShare(this.projectId, this.newShareName).subscribe({
-      next: () => {
-        this.success = "Share created";
+      next: (res) => {
+        this.success = `Share "${this.newShareName}" created successfully`;
         this.newShareName = '';
+        this.creating = false;
         this.loadShares();
       },
       error: (err) => {
-        this.error = err.error?.error || "Create failed";
+        this.error = err.error?.message || 'Failed to create share';
+        this.creating = false;
       }
     });
   }
 
-  // ========================
-  // SELECT SHARE
-  // ========================
-
   selectShare(share: FileShare) {
-
     this.selectedShare = share;
-
-    this.api.getProjectShareMountInfo(this.projectId, share.name)
-      .subscribe(res => this.mountInfo = res);
-
+    this.activeTab = 'linux';
     this.api.browseProjectShare(this.projectId, share.name)
-      .subscribe(res => this.files = res);
+      .subscribe({ next: (res) => { this.files = res; this.cd.detectChanges(); }, error: () => {} });
   }
-
-  // ========================
-  // DELETE
-  // ========================
 
   deleteShare(name: string) {
-
-    if (!confirm("Delete this share?")) return;
-
+    if (!confirm(`Delete share "${name}"? This action cannot be undone.`)) return;
     this.api.deleteProjectShare(this.projectId, name).subscribe({
       next: () => {
-        this.success = "Deleted";
-        this.selectedShare = null;
+        this.success = 'Share deleted';
+        if (this.selectedShare?.name === name) this.selectedShare = null;
         this.loadShares();
       },
-      error: () => this.error = "Delete failed"
+      error: () => this.error = 'Delete failed'
     });
   }
-
-  // ========================
-  // UPLOAD
-  // ========================
 
   uploadFile(event: any) {
-
     const file = event.target.files[0];
     if (!file || !this.selectedShare) return;
-
-    this.api.uploadToProjectShare(
-      this.projectId,
-      this.selectedShare.name,
-      file
-    ).subscribe(() => {
-
-      this.success = "Uploaded";
-
-      this.selectShare(this.selectedShare!);
-
+    this.api.uploadToProjectShare(this.projectId, this.selectedShare.name, file).subscribe({
+      next: () => {
+        this.success = `"${file.name}" uploaded`;
+        this.selectShare(this.selectedShare!);
+      },
+      error: () => this.error = 'Upload failed'
     });
   }
 
+  copyCommand(text: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      this.copied = true;
+      setTimeout(() => this.copied = false, 2000);
+    });
+  }
+
+  setTab(tab: 'linux' | 'windows' | 'macos') {
+    this.activeTab = tab;
+  }
+
+  get activeCommand(): string {
+    if (!this.selectedShare?.mountInfo) return '';
+    const m = this.selectedShare.mountInfo;
+    if (this.activeTab === 'linux') return m.linuxCommand;
+    if (this.activeTab === 'windows') return m.windowsCommand;
+    return m.macosCommand;
+  }
+
+  dismissAlert() {
+    this.error = null;
+    this.success = null;
+  }
 }

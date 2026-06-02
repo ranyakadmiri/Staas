@@ -17,7 +17,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class FileShareService {
-    private final EsxiService esxiService;
+
     private final FileShareRepository repository;
     private final CephFsService cephFsService;
     private final NfsExportService nfsExportService;
@@ -69,15 +69,7 @@ public class FileShareService {
                 throw new RuntimeException("Export was not written to ganesha.conf");
             }
 
-            System.out.println("🔹 STEP 4: Creating ESXi datastore");
-
-            String datastoreName = share.getShareKey();
-
-            esxiService.createNfsDatastore(
-                    datastoreName,
-                    share.getServerIp(),
-                    share.getPseudoPath()
-            );
+            System.out.println("🔹 STEP 4: Share ready — NFS export actif");
 
             System.out.println("🔹 STEP 5: SUCCESS");
 
@@ -105,14 +97,15 @@ public class FileShareService {
                 .toList();
     }
 
-    public FileShareResponse getShare(Long projectId, String name) {
+   public FileShareResponse getShare(Long projectId, String name) {
         FileShare share = repository.findByProjectIdAndName(projectId, name)
                 .orElseThrow(() -> new IllegalArgumentException("Share not found"));
 
         return toResponse(share);
     }
 
-    public MountInfoResponse getMountInfo(Long projectId, String name) {
+
+    /*public MountInfoResponse getMountInfo(Long projectId, String name) {
         FileShare share = repository.findByProjectIdAndName(projectId, name)
                 .orElseThrow(() -> new IllegalArgumentException("Share not found"));
 
@@ -123,6 +116,11 @@ public class FileShareService {
                 .protocol("NFS")
                 .esxiVersion("NFS 4")
                 .build();
+    }*/
+    public FileShareResponse getMountInfo(Long projectId, String name) {
+        FileShare share = repository.findByProjectIdAndName(projectId, name)
+                .orElseThrow(() -> new IllegalArgumentException("Share not found"));
+        return toResponse(share);  // réutilise toResponse() directement
     }
 
     public List<FileEntryDTO> browseShare(Long projectId, String name) {
@@ -178,7 +176,7 @@ public class FileShareService {
         }
     }
 
-    private FileShareResponse toResponse(FileShare share) {
+   /* private FileShareResponse toResponse(FileShare share) {
         return FileShareResponse.builder()
                 .id(share.getId())
                 .projectId(share.getProjectId())
@@ -191,5 +189,32 @@ public class FileShareService {
                 .status(share.getStatus())
                 .mountTarget(share.getServerIp() + ":" + share.getPseudoPath())
                 .build();
-    }
+    }*/
+   // Remplacer toResponse() par ceci :
+   private FileShareResponse toResponse(FileShare share) {
+       String server = share.getServerIp();
+       String exportPath = share.getPseudoPath();
+
+       return FileShareResponse.builder()
+               .id(share.getId())
+               .projectId(share.getProjectId())
+               .name(share.getName())
+               .status(share.getStatus())
+               .mountInfo(FileShareResponse.MountInfo.builder()
+                       .server(server)
+                       .exportPath(exportPath)
+                       .nfsVersion("NFSv4")
+                       .linuxCommand(
+                               "sudo apt install nfs-common && " +
+                                       "sudo mount -t nfs -o vers=4 " + server + ":" + exportPath + " /mnt/data"
+                       )
+                       .windowsCommand(
+                               "net use Z: \\\\" + server + "\\" + exportPath.replace("/", "\\")
+                       )
+                       .macosCommand(
+                               "sudo mount -t nfs " + server + ":" + exportPath + " /Volumes/data"
+                       )
+                       .build())
+               .build();
+   }
 }

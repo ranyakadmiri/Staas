@@ -1,121 +1,513 @@
-<div class="storage-container">
+<div class="bs-root">
 
-  <!-- HEADER -->
+  <!-- ══ HEADER ══════════════════════════════════════════════════════════ -->
+  <header class="bs-header">
+    <div class="bs-header-left">
+      <div class="bs-header-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Block Storage</h1>
+        <span class="bs-sub">Project {{ projectId }}</span>
+      </div>
+    </div>
+    <div class="bs-header-right">
+      <button class="bs-btn-outline" (click)="openWizard()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        Connect Agent
+        <span class="bs-pill" *ngIf="agents.length">{{ agents.length }}</span>
+      </button>
+      <button class="bs-btn-outline" (click)="loadVolumes(); loadAgents()" [disabled]="loading">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             [class.spinning]="loading">
+          <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </header>
 
-  <div class="objects-header">
-    <h2>Block Storage (Project {{ projectId }})</h2>
-
-
-<button (click)="loadVolumes()" [disabled]="loading">
-  {{ loading ? 'Loading...' : 'Refresh' }}
-</button>
-
-
-  </div>
-
-  <!-- TOAST -->
-
-  <div *ngIf="toast" [class]="toast.type">
+  <!-- ══ TOAST ════════════════════════════════════════════════════════════ -->
+  <div *ngIf="toast" class="bs-toast bs-toast--{{toast.type}}">
+    <svg *ngIf="toast.type==='success'" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+    <svg *ngIf="toast.type==='error'"   width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+    <svg *ngIf="toast.type==='info'"    width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
     {{ toast.message }}
   </div>
 
-  <div class="layout">
+  <!-- ══ BODY ═════════════════════════════════════════════════════════════ -->
+  <div class="bs-layout">
 
+    <!-- LEFT SIDEBAR -->
+    <aside class="bs-sidebar">
 
-<!-- LEFT: CREATE PANEL -->
-<div class="panel">
-  <h3>Create Volume</h3>
+      <!-- Create volume -->
+      <div class="bs-panel">
+        <h2 class="bs-panel-title">New Volume</h2>
 
-  <input [(ngModel)]="newVolume.name" placeholder="Volume name" />
-  <input type="number" [(ngModel)]="newVolume.sizeGB" placeholder="Size (GB)" />
-
-  <button (click)="createVolume()" [disabled]="creating || !newVolume.name">
-    {{ creating ? 'Creating...' : 'Create Volume' }}
-  </button>
-</div>
-
-<!-- RIGHT: VOLUMES DASHBOARD -->
-<div class="panel">
-  <h3>Volumes</h3>
-
-  <div class="volume-grid">
-
-    <div class="volume-card" *ngFor="let v of volumes">
-
-      <!-- HEADER -->
-      <div class="card-header">
-        <h4>{{ v.name }}</h4>
-
-        <span class="status" [ngClass]="v.status?.toLowerCase()">
-          {{ v.status }}
-        </span>
-      </div>
-
-      <!-- BODY -->
-      <div class="card-body">
-
-        <div><b>Size:</b> {{ v.sizeGB }} GB</div>
-        <div><b>Datastore:</b> {{ v.datastoreName || '-' }}</div>
-        <div><b>ESXi Disk:</b> {{ v.esxiDiskCanonical || '-' }}</div>
-
-        <hr />
-
-        <div><b>Target IQN:</b> {{ v.targetIqn || '-' }}</div>
-        <div><b>Initiator IQN:</b> {{ v.initiatorIqn || '-' }}</div>
-        <div><b>Gateway IP:</b> {{ v.gatewayIp || '-' }}</div>
-
-        <div *ngIf="v.errorMessage" class="error-msg">
-          ⚠ {{ v.errorMessage }}
+        <div class="bs-field">
+          <label>Name</label>
+          <input class="bs-input" [(ngModel)]="newVolume.name" placeholder="e.g. db-primary" />
+          <span class="bs-hint">Letters, numbers, hyphens, dots</span>
         </div>
 
+        <div class="bs-field">
+          <label>Size</label>
+          <div class="bs-size-row">
+            <input class="bs-input" type="number" [(ngModel)]="newVolume.sizeGB" min="1" />
+            <span class="bs-unit">GB</span>
+          </div>
+        </div>
+
+        <button class="bs-btn-primary" (click)="createVolume()"
+                [disabled]="creating || !newVolume.name.trim()">
+          <span *ngIf="!creating">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Create Volume
+          </span>
+          <span *ngIf="creating" class="bs-spinner-row">
+            <span class="bs-spinner"></span> Provisioning…
+          </span>
+        </button>
+
+        <!-- Agent status -->
+        <div class="bs-agent-notice bs-agent-notice--ok" *ngIf="agents.length">
+          <span class="bs-dot"></span>
+          {{ agents.length }} agent{{ agents.length > 1 ? 's' : '' }} connected
+        </div>
+        <div class="bs-agent-notice bs-agent-notice--warn" *ngIf="!agents.length">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          No agents —
+          <button class="bs-link" (click)="openWizard()">connect one</button>
+          to attach volumes
+        </div>
       </div>
 
-      <!-- ACTIONS -->
-      <div class="card-actions">
-        <button (click)="loadEvents(v.name)">Events</button>
-         <button class="btn-extend" (click)="openExtentModal(v.name)">+ Add Disk</button>
-        <button (click)="deleteVolume(v.name)">
-          {{ deleting === v.name ? 'Deleting...' : 'Delete' }}
+      <!-- Agent list -->
+      <div class="bs-panel bs-panel--sm" *ngIf="agents.length">
+        <h2 class="bs-panel-title">Connected Agents</h2>
+        <div class="bs-agent-row" *ngFor="let a of agents; trackBy: trackBy">
+          <div>
+            <div class="bs-agent-name">{{ a.hostname }}</div>
+            <div class="bs-agent-meta">{{ a.os }} · ID {{ a.id }}</div>
+          </div>
+          <span class="bs-heartbeat-dot"></span>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- MAIN: VOLUME LIST -->
+    <main class="bs-main">
+
+      <div class="bs-empty" *ngIf="!loading && !volumes.length">
+        <div class="bs-empty-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+          </svg>
+        </div>
+        <p>No volumes yet. Create your first one.</p>
+      </div>
+
+      <div class="bs-loading" *ngIf="loading">
+        <span class="bs-spinner bs-spinner--lg"></span>
+      </div>
+
+      <div class="bs-grid" *ngIf="!loading && volumes.length">
+        <div class="bs-vol-card" *ngFor="let v of volumes; trackBy: trackBy"
+             [class.bs-vol-card--error]="v.status==='ERROR'">
+
+          <!-- Card header -->
+          <div class="bs-vol-head">
+            <div class="bs-vol-name">
+              <div class="bs-vol-icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                </svg>
+              </div>
+              {{ v.name }}
+            </div>
+            <span class="bs-badge bs-badge--{{ statusClass(v.status) }}">
+              <span class="bs-badge-pulse" *ngIf="statusClass(v.status)==='pending'"></span>
+              {{ statusLabel(v.status) }}
+            </span>
+          </div>
+
+          <!-- Size -->
+          <div class="bs-vol-size">
+            <div class="bs-size-track"><div class="bs-size-fill"></div></div>
+            <span>{{ v.sizeGB }} GB</span>
+          </div>
+
+          <!-- Connection info — only when ready -->
+          <div class="bs-conn-box" *ngIf="isReady(v)">
+            <div class="bs-conn-row">
+              <span class="bs-conn-key">Target IQN</span>
+              <span class="bs-conn-val">{{ v.iscsiConnection?.targetIqn }}</span>
+              <button class="bs-copy" (click)="copy(v.iscsiConnection?.targetIqn, 'iqn-'+v.name)"
+                      [title]="isCopied('iqn-'+v.name) ? 'Copied!' : 'Copy'">
+                <svg *ngIf="!isCopied('iqn-'+v.name)" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg *ngIf="isCopied('iqn-'+v.name)"  width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10d68a" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              </button>
+            </div>
+            <div class="bs-conn-row">
+              <span class="bs-conn-key">Portal</span>
+              <span class="bs-conn-val">{{ v.iscsiConnection?.portalAddress }}</span>
+              <button class="bs-copy" (click)="copy(v.iscsiConnection?.portalAddress, 'portal-'+v.name)">
+                <svg *ngIf="!isCopied('portal-'+v.name)" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                <svg *ngIf="isCopied('portal-'+v.name)"  width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10d68a" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Error message -->
+          <div class="bs-err-msg" *ngIf="v.status==='ERROR'">
+            ⚠ {{ v.errorMessage || 'Provisioning failed' }}
+          </div>
+
+          <!-- Actions -->
+          <div class="bs-vol-actions">
+            <button class="bs-act bs-act--attach"
+                    *ngIf="isReady(v) && agents.length"
+                    (click)="openAttachModal(v)">Attach to VM</button>
+            <button class="bs-act bs-act--events"
+                    (click)="openEventsModal(v)">Events</button>
+            <button class="bs-act bs-act--expand"
+                    *ngIf="v.initiatorType==='VMWARE_ESXI'"
+                    (click)="openExtentModal(v.name)">+ Expand</button>
+            <button class="bs-act bs-act--delete"
+                    (click)="deleteVolume(v.name)"
+                    [disabled]="deleting===v.name">
+              <span class="bs-spinner bs-spinner--xs" *ngIf="deleting===v.name"></span>
+              <span *ngIf="deleting!==v.name">Delete</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+  </div><!-- /bs-layout -->
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL: AGENT SETUP WIZARD
+       Step 1 — Prerequisites + Download
+       Step 2 — Register
+       Step 3 — Start (run in background)
+       Step 4 — Attach a volume
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bs-overlay" *ngIf="showWizard" (click)="closeWizard()">
+    <div class="bs-modal bs-modal--wizard" (click)="$event.stopPropagation()">
+
+      <!-- Wizard top bar -->
+      <div class="bs-wiz-topbar">
+        <div class="bs-wiz-steps">
+          <div *ngFor="let s of [1,2,3,4]"
+               class="bs-wiz-step"
+               [class.active]="wizardStep === s"
+               [class.done]="wizardStep > s">
+            <div class="bs-wiz-num">
+              <svg *ngIf="wizardStep > s" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg>
+              <span *ngIf="wizardStep <= s">{{ s }}</span>
+            </div>
+            <span class="bs-wiz-label">{{ ['Install','Register','Start','Attach'][s-1] }}</span>
+          </div>
+        </div>
+        <button class="bs-modal-x" (click)="closeWizard()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </div>
 
+      <!-- OS toggle -->
+      <div class="bs-os-bar">
+        <button [class.on]="agentOs==='linux'"   (click)="agentOs='linux'">🐧 Linux</button>
+        <button [class.on]="agentOs==='windows'" (click)="agentOs='windows'">🪟 Windows</button>
+      </div>
+
+      <!-- ── STEP 1: Install ── -->
+      <div class="bs-wiz-body" *ngIf="wizardStep===1">
+        <h3>Install prerequisites &amp; download the agent</h3>
+        <p>Run these commands on the VM you want to attach volumes to.</p>
+
+        <div class="bs-wiz-step-block">
+          <div class="bs-step-label">1 — Install open-iscsi</div>
+          <div class="bs-code-block">
+            <code>{{ agentOs==='linux' ? 'sudo apt install open-iscsi -y' : '# Run PowerShell as Administrator:\nEnable-WindowsOptionalFeature -Online -FeatureName MicrosoftISCSIInitiator' }}</code>
+            <button class="bs-copy" (click)="copy(getPrereqCommand(), 'prereq')">
+              <svg *ngIf="!isCopied('prereq')" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <svg *ngIf="isCopied('prereq')"  width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10d68a" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="bs-wiz-step-block">
+          <div class="bs-step-label">2 — Install Python dependency</div>
+          <div class="bs-code-block">
+            <code>{{ agentOs==='linux' ? 'pip3 install requests' : 'pip install requests' }}</code>
+            <button class="bs-copy" (click)="copy(agentOs==='linux' ? 'pip3 install requests' : 'pip install requests', 'pip')">
+              <svg *ngIf="!isCopied('pip')" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <svg *ngIf="isCopied('pip')"  width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10d68a" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="bs-wiz-step-block">
+          <div class="bs-step-label">3 — Download the STaaS agent</div>
+          <div class="bs-code-block">
+            <code>{{ getDownloadCommand() }}</code>
+            <button class="bs-copy" (click)="copy(getDownloadCommand(), 'dl')">
+              <svg *ngIf="!isCopied('dl')" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <svg *ngIf="isCopied('dl')"  width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10d68a" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+            </button>
+          </div>
+          <div class="bs-alt-download">
+            Or download directly:
+            <a [href]="getAgentDownloadUrl()" target="_blank" class="bs-link">staas_agent.py ↗</a>
+          </div>
+        </div>
+
+        <div class="bs-wiz-footer">
+          <button class="bs-btn-primary" (click)="nextWizardStep()">Next →</button>
+        </div>
+      </div>
+
+      <!-- ── STEP 2: Register ── -->
+      <div class="bs-wiz-body" *ngIf="wizardStep===2">
+        <h3>Register this VM with your account</h3>
+        <p>
+          Run this once on the VM. It reads the iSCSI initiator IQN automatically and
+          registers the VM under your project. Your login token is pre-filled.
+        </p>
+
+        <div class="bs-info-banner">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Your JWT is embedded in the command below — keep it private.
+        </div>
+
+        <div class="bs-code-block bs-code-block--multi">
+          <pre><code>{{ getRegisterCommand() }}</code></pre>
+          <button class="bs-copy bs-copy--top" (click)="copy(getRegisterCommand(), 'reg')">
+            <svg *ngIf="!isCopied('reg')" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <svg *ngIf="isCopied('reg')"  width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10d68a" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+          </button>
+        </div>
+
+        <div class="bs-output-box">
+          <div class="bs-output-label">Expected output</div>
+          <pre class="bs-output">IQN detected: iqn.2004-10.com.ubuntu:01:...
+Registering with {{ serverUrl }} ...
+Config saved → ~/.staas/config.json
+Registered successfully. Agent ID: 1</pre>
+        </div>
+
+        <div class="bs-wiz-footer">
+          <button class="bs-btn-outline" (click)="prevWizardStep()">← Back</button>
+          <button class="bs-btn-primary" (click)="nextWizardStep()">Next →</button>
+        </div>
+      </div>
+
+      <!-- ── STEP 3: Start ── -->
+      <div class="bs-wiz-body" *ngIf="wizardStep===3">
+        <h3>Start the agent</h3>
+        <p>
+          Run this on the VM to start polling for commands.
+          Keep this process running — it listens for attach/detach requests from the dashboard.
+        </p>
+
+        <div class="bs-code-block bs-code-block--multi">
+          <pre><code>{{ getStartCommand() }}</code></pre>
+          <button class="bs-copy bs-copy--top" (click)="copy(getStartCommand(), 'start')">
+            <svg *ngIf="!isCopied('start')" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <svg *ngIf="isCopied('start')"  width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10d68a" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+          </button>
+        </div>
+
+        <div class="bs-output-box">
+          <div class="bs-output-label">Expected output</div>
+          <pre class="bs-output">Agent started (id=1). Polling every 10s. Ctrl+C to stop.
+[INFO] heartbeat ✓
+[INFO] heartbeat ✓</pre>
+        </div>
+
+        <div class="bs-tip">
+          💡 To run in the background on Linux:
+          <div class="bs-code-block" style="margin-top:8px">
+            <code>nohup python3 staas_agent.py start &amp; disown</code>
+            <button class="bs-copy" (click)="copy('nohup python3 staas_agent.py start &amp; disown', 'bg')">
+              <svg *ngIf="!isCopied('bg')" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              <svg *ngIf="isCopied('bg')"  width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#10d68a" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="bs-wiz-footer">
+          <button class="bs-btn-outline" (click)="prevWizardStep()">← Back</button>
+          <button class="bs-btn-primary" (click)="nextWizardStep()">Next →</button>
+        </div>
+      </div>
+
+      <!-- ── STEP 4: Attach ── -->
+      <div class="bs-wiz-body" *ngIf="wizardStep===4">
+        <h3>Attach a volume to this VM</h3>
+
+        <div class="bs-success-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+          <div>
+            <strong>Agent is ready.</strong>
+            <p>Your VM is now registered. Here's how to attach a volume:</p>
+          </div>
+        </div>
+
+        <div class="bs-how-steps">
+          <div class="bs-how-row">
+            <div class="bs-how-num">1</div>
+            <div>
+              <strong>Create a volume</strong> using the panel on the left (just name + size).
+              Wait for the status to show <span class="bs-badge bs-badge--ready" style="font-size:10px">Ready</span>.
+            </div>
+          </div>
+          <div class="bs-how-row">
+            <div class="bs-how-num">2</div>
+            <div>
+              <strong>Click "Attach to VM"</strong> on the volume card. Select this VM from the list.
+            </div>
+          </div>
+          <div class="bs-how-row">
+            <div class="bs-how-num">3</div>
+            <div>
+              Within ~10 seconds the disk appears on your VM:
+              <div class="bs-code-block" style="margin-top:8px">
+                <code>lsblk  # new /dev/sdX</code>
+              </div>
+            </div>
+          </div>
+          <div class="bs-how-row">
+            <div class="bs-how-num">4</div>
+            <div>
+              Format and mount:
+              <div class="bs-code-block bs-code-block--multi" style="margin-top:8px">
+                <pre><code>sudo mkfs.ext4 /dev/sdX
+sudo mkdir /mnt/data
+sudo mount /dev/sdX /mnt/data</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bs-wiz-footer">
+          <button class="bs-btn-outline" (click)="prevWizardStep()">← Back</button>
+          <button class="bs-btn-primary" (click)="closeWizard()">Done</button>
+        </div>
+      </div>
+
     </div>
-
-  </div>
-</div>
-```
-
   </div>
 
-  <!-- EVENTS PANEL -->
 
-  <div *ngIf="selectedEvents?.length" class="panel" style="margin-top: 20px;">
-    <h3>Provision Events</h3>
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL: ATTACH TO AGENT
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bs-overlay" *ngIf="showAttachModal" (click)="closeAttachModal()">
+    <div class="bs-modal" (click)="$event.stopPropagation()">
+      <div class="bs-modal-header">
+        <h3>Attach <span class="bs-hl">{{ attachTarget?.name }}</span> to a VM</h3>
+        <button class="bs-modal-x" (click)="closeAttachModal()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
 
+      <p class="bs-modal-desc">
+        Select the VM (agent) that should receive this volume.
+        The agent will run <code>iscsiadm</code> automatically and
+        <strong>/dev/sdX</strong> will appear within ~10 seconds.
+      </p>
 
-<ul class="events">
-  <li *ngFor="let e of selectedEvents">
-    <b>{{ e.status }}</b> — {{ e.message }}
-  </li>
-</ul>
+      <div class="bs-agent-pick">
+        <div class="bs-agent-opt"
+             *ngFor="let a of agents"
+             [class.selected]="selectedAgentId===a.id"
+             (click)="selectedAgentId=a.id">
+          <div>
+            <div class="bs-agent-opt-name">{{ a.hostname }}</div>
+            <div class="bs-agent-opt-meta">{{ a.os }} · IQN: {{ a.initiatorIqn }}</div>
+          </div>
+          <div class="bs-radio" [class.on]="selectedAgentId===a.id"></div>
+        </div>
+      </div>
 
-
-  </div>
-<!-- EXTENT MODAL -->
-<div class="modal-overlay" *ngIf="showExtentModal" (click)="closeExtentModal()">
-  <div class="modal-panel" (click)="$event.stopPropagation()">
-    <h3>Add Disk to <span>{{ extentTarget }}</span></h3>
-    <p class="modal-subtitle">A new RBD disk will be appended to this iSCSI datastore.</p>
-
-    <label>Size (GB)</label>
-    <input type="number" [(ngModel)]="newExtent.sizeGB" placeholder="Size in GB" min="1" />
-
-    <div class="modal-actions">
-      <button class="btn-cancel" (click)="closeExtentModal()">Cancel</button>
-      <button class="btn-confirm" (click)="appendExtent()" [disabled]="extendingVolume">
-        {{ extendingVolume ? 'Appending...' : 'Append Disk' }}
-      </button>
+      <div class="bs-modal-footer">
+        <button class="bs-btn-outline" (click)="closeAttachModal()">Cancel</button>
+        <button class="bs-btn-primary" (click)="doAttach()"
+                [disabled]="!selectedAgentId || attaching">
+          <span *ngIf="!attaching">Attach Volume</span>
+          <span *ngIf="attaching" class="bs-spinner-row"><span class="bs-spinner"></span> Queuing…</span>
+        </button>
+      </div>
     </div>
   </div>
-</div>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL: EVENTS
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bs-overlay" *ngIf="showEventsModal" (click)="closeEventsModal()">
+    <div class="bs-modal bs-modal--wide" (click)="$event.stopPropagation()">
+      <div class="bs-modal-header">
+        <h3>Events — <span class="bs-hl">{{ selectedVolume?.name }}</span></h3>
+        <button class="bs-modal-x" (click)="closeEventsModal()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="bs-events-scroll">
+        <div class="bs-event" *ngFor="let e of selectedEvents" [class.bs-event--fail]="!e.success">
+          <div class="bs-event-dot" [class.fail]="!e.success"></div>
+          <div class="bs-event-content">
+            <span class="bs-event-step">{{ e.stepName }}</span>
+            <span class="bs-event-msg">{{ e.message }}</span>
+          </div>
+          <span class="bs-event-time">{{ e.createdAt | date:'HH:mm:ss' }}</span>
+        </div>
+        <div class="bs-empty-mini" *ngIf="!selectedEvents.length">No events yet</div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       MODAL: EXPAND (ESXi extent)
+  ═══════════════════════════════════════════════════════════════════════ -->
+  <div class="bs-overlay" *ngIf="showExtentModal" (click)="closeExtentModal()">
+    <div class="bs-modal" (click)="$event.stopPropagation()">
+      <div class="bs-modal-header">
+        <h3>Expand <span class="bs-hl">{{ extentTarget }}</span></h3>
+        <button class="bs-modal-x" (click)="closeExtentModal()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <p class="bs-modal-desc">Appends a new RBD disk as a VMFS extent to this datastore.</p>
+
+      <div class="bs-field">
+        <label>Extent Name</label>
+        <input class="bs-input" [(ngModel)]="newExtent.name" />
+      </div>
+      <div class="bs-field">
+        <label>Size (GB)</label>
+        <input class="bs-input" type="number" [(ngModel)]="newExtent.sizeGB" min="1" />
+      </div>
+
+      <div class="bs-modal-footer">
+        <button class="bs-btn-outline" (click)="closeExtentModal()">Cancel</button>
+        <button class="bs-btn-primary" (click)="appendExtent()" [disabled]="extendingVolume">
+          <span *ngIf="!extendingVolume">Append Disk</span>
+          <span *ngIf="extendingVolume" class="bs-spinner-row"><span class="bs-spinner"></span>Appending…</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div>

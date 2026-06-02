@@ -1,22 +1,18 @@
+export interface MountInfo {
+  server: string;
+  exportPath: string;
+  nfsVersion: string;
+  linuxCommand: string;
+  windowsCommand: string;
+  macosCommand: string;
+}
+
 export interface FileShare {
   id: number;
   projectId: number;
   name: string;
-  shareKey: string;
-  pseudoPath: string;
-  realPath: string;
-  serverIp: string;
-  exportId: number;
   status: string;
-  mountTarget: string;
-}
-
-export interface MountInfo {
-  server: string;
-  path: string;
-  mountTarget: string;
-  protocol: string;
-  esxiVersion: string;
+  mountInfo: MountInfo;
 }
 
 export interface FileEntry {

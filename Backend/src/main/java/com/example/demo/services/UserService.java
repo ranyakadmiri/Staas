@@ -33,4 +33,8 @@ public class UserService {
     public Optional<User> getUserById(Long id) {
         return userRepository.findById(id);
     }
-}
+    public Long findProjectIdByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .map(user -> user.getId())   // assumes User has a getProjectId() field
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
+    }}

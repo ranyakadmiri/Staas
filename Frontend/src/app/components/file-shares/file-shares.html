@@ -3,141 +3,335 @@
   <!-- HEADER -->
   <div class="objects-header">
     <div class="header-content-wrapper">
-      <div class="breadcrumb">
-        <span class="path-root">Projects</span>
-        <span class="separator-icon">/</span>
-        <span class="path-current">File Shares</span>
+      <div>
+        <div class="breadcrumb">
+          <span class="path-root">Projects</span>
+          <span class="separator-icon">/</span>
+          <span class="path-current">File Storage</span>
+        </div>
+        <span class="subtitle-text">CephFS distributed filesystem — NFSv4 standard protocol</span>
       </div>
-      <span class="subtitle-text">Manage your CephFS storage</span>
     </div>
   </div>
 
   <!-- ALERTS -->
-  <div *ngIf="success" class="alert-success">
-    ✔ {{ success }}
-  </div>
-
-  <div *ngIf="error" class="alert-error">
-    ✖ {{ error }}
-  </div>
+  @if (success) {
+    <div class="alert-success">
+      <span>✔</span> {{ success }}
+      <button class="alert-dismiss" (click)="dismissAlert()">×</button>
+    </div>
+  }
+  @if (error) {
+    <div class="alert-error">
+      <span>✖</span> {{ error }}
+      <button class="alert-dismiss" (click)="dismissAlert()">×</button>
+    </div>
+  }
 
   <div class="main-content-layout">
 
-    <!-- LEFT: SHARES LIST -->
+    <!-- LEFT COLUMN -->
     <div>
 
+      <!-- SHARES LIST -->
       <div class="glass-panel grid-card">
-        <div class="section-title">
-          <h2>File Shares</h2>
-          <span class="badge">{{ shares.length }}</span>
+        <div class="panel-header">
+          <div class="section-title">
+            <div class="panel-icon purple">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </div>
+            <h2>File Shares</h2>
+            <span class="badge">{{ shares.length }}</span>
+          </div>
         </div>
 
-        <div *ngIf="loading" class="skeleton-wrap">
-          <div class="skeleton-bar"></div>
-          <div class="skeleton-bar"></div>
-        </div>
+        @if (loading) {
+          <div class="skeleton-wrap">
+            <div class="skeleton-bar"></div>
+            <div class="skeleton-bar" style="width:75%"></div>
+            <div class="skeleton-bar" style="width:60%"></div>
+          </div>
+        }
 
-        <div *ngIf="!loading && shares.length === 0" class="empty-state">
-          <div class="empty-icon-wrapper">📁</div>
-          <h3>No shares yet</h3>
-        </div>
+        @if (!loading && shares.length === 0) {
+          <div class="empty-state">
+            <div class="empty-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+            </div>
+            <h3>No shares yet</h3>
+            <p>Create your first NFS share to get started</p>
+          </div>
+        }
 
-        <div class="data-list" *ngIf="shares.length > 0">
+        @if (shares.length > 0) {
+          <div class="data-list">
+            @for (share of shares; track share.id) {
+              <div class="data-row" [class.selected]="selectedShare?.id === share.id" (click)="selectShare(share)">
+                <div class="vol-content">
+                  <div class="vol-icon purple">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+                  </div>
+                  <div>
+                    <div class="data-name">{{ share.name }}</div>
+                    <div class="share-endpoint">
+                      {{ share.mountInfo?.server }}:{{ share.mountInfo?.exportPath }}
+                    </div>
+                  </div>
+                </div>
+                <div class="row-right">
+                  <span class="status-badge" [class.ready]="share.status === 'READY'" [class.creating]="share.status === 'CREATING'" [class.error]="share.status === 'ERROR'">
+                    {{ share.status }}
+                  </span>
+                  <div class="data-actions">
+                    <button class="action-btn danger-text" (click)="deleteShare(share.name); $event.stopPropagation()" title="Delete share">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
 
-          <div class="data-row"
-               *ngFor="let share of shares"
-               (click)="selectShare(share)">
+      <!-- DETAIL PANEL -->
+      @if (selectedShare) {
+        <div class="glass-panel mt-4">
+          <div class="panel-header">
+            <div class="section-title">
+              <div class="vol-icon purple">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
+              </div>
+              <h2>{{ selectedShare.name }}</h2>
+              <span class="status-badge ready">{{ selectedShare.status }}</span>
+            </div>
+          </div>
 
-            <div class="vol-content">
-              <div class="vol-icon purple">📦</div>
-              <div>
-                <div class="data-name">{{ share.name }}</div>
-                <div class="font-mono text-sm">
-                  {{ share.mountTarget }}
+          <!-- CONNECTION INFO -->
+          @if (selectedShare.mountInfo) {
+            <div class="detail-section">
+              <div class="info-grid">
+                <div class="info-card">
+                  <div class="info-label">NFS Server</div>
+                  <div class="info-value mono">{{ selectedShare.mountInfo.server }}</div>
+                </div>
+                <div class="info-card">
+                  <div class="info-label">Export path</div>
+                  <div class="info-value mono">{{ selectedShare.mountInfo.exportPath }}</div>
+                </div>
+                <div class="info-card">
+                  <div class="info-label">Protocol</div>
+                  <div class="info-value">{{ selectedShare.mountInfo.nfsVersion }}</div>
+                </div>
+                <div class="info-card">
+                  <div class="info-label">Mount target</div>
+                  <div class="info-value mono">{{ selectedShare.mountInfo.server }}:{{ selectedShare.mountInfo.exportPath }}</div>
                 </div>
               </div>
             </div>
 
-            <div class="data-actions">
-              <button class="action-btn danger-text"
-                      (click)="deleteShare(share.name); $event.stopPropagation()">
-                🗑
-              </button>
+            <!-- MOUNT INSTRUCTIONS -->
+            <div class="detail-section">
+              <div class="instructions-header">
+                <h3>Mount instructions</h3>
+                <p>Connect from any operating system using standard NFS client</p>
+              </div>
+
+              <div class="os-tabs">
+                <button class="os-tab" [class.active]="activeTab === 'linux'" (click)="setTab('linux')">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2z"/></svg>
+                  Linux
+                </button>
+                <button class="os-tab" [class.active]="activeTab === 'windows'" (click)="setTab('windows')">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M3 5.6L10.5 4.5v7H3zm0 12.8L10.5 19.5v-7H3zM11.5 4.3L21 3v8.5h-9.5zm0 15.4L21 21v-8.5h-9.5z"/></svg>
+                  Windows
+                </button>
+                <button class="os-tab" [class.active]="activeTab === 'macos'" (click)="setTab('macos')">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M18.7 17.2c-.4.9-.6 1.3-1.1 2.1-.7 1.1-1.7 2.4-2.9 2.4-1.1 0-1.4-.7-2.9-.7s-1.9.7-3 .7c-1.2 0-2.2-1.2-2.9-2.3C4 16.9 3 12.8 4.5 10c1-1.8 2.8-2.9 4.6-2.9 1.2 0 2.2.8 3 .8.8 0 2.1-.9 3.5-.8 1.6.1 2.9.9 3.7 2.3-3.2 1.8-2.7 6.4.4 7.8zM13 6.5C12.4 4.5 14 2 16 2c.2 2.2-1.9 4.6-3 4.5z"/></svg>
+                  macOS
+                </button>
+              </div>
+
+              <div class="command-block">
+                <div class="command-label">
+                  @if (activeTab === 'linux') { Run this command on your Linux VM }
+                  @if (activeTab === 'windows') { Run in Command Prompt (as Administrator) }
+                  @if (activeTab === 'macos') { Run in Terminal }
+                </div>
+                <div class="command-content">
+                  <code>{{ activeCommand }}</code>
+                  <button class="copy-btn" (click)="copyCommand(activeCommand)" [class.copied]="copied">
+                    @if (!copied) {
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                      Copy
+                    }
+                    @if (copied) {
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+                      Copied!
+                    }
+                  </button>
+                </div>
+              </div>
+
+              @if (activeTab === 'linux') {
+                <div class="step-list">
+                  <div class="step">
+                    <span class="step-num">1</span>
+                    <div>
+                      <div class="step-title">Install NFS client</div>
+                      <code class="inline-code">sudo apt install nfs-common</code>
+                    </div>
+                  </div>
+                  <div class="step">
+                    <span class="step-num">2</span>
+                    <div>
+                      <div class="step-title">Create mount point</div>
+                      <code class="inline-code">sudo mkdir -p /mnt/data</code>
+                    </div>
+                  </div>
+                  <div class="step">
+                    <span class="step-num">3</span>
+                    <div>
+                      <div class="step-title">Mount the share</div>
+                      <code class="inline-code">{{ selectedShare.mountInfo.linuxCommand }}</code>
+                    </div>
+                  </div>
+                  <div class="step">
+                    <span class="step-num">4</span>
+                    <div>
+                      <div class="step-title">Verify</div>
+                      <code class="inline-code">df -h /mnt/data</code>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              @if (activeTab === 'windows') {
+                <div class="step-list">
+                  <div class="step">
+                    <span class="step-num">1</span>
+                    <div>
+                      <div class="step-title">Enable NFS client</div>
+                      <div class="step-desc">Control Panel → Programs → Turn Windows features on → Services for NFS → Client for NFS</div>
+                    </div>
+                  </div>
+                  <div class="step">
+                    <span class="step-num">2</span>
+                    <div>
+                      <div class="step-title">Mount the share</div>
+                      <code class="inline-code">{{ selectedShare.mountInfo.windowsCommand }}</code>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              @if (activeTab === 'macos') {
+                <div class="step-list">
+                  <div class="step">
+                    <span class="step-num">1</span>
+                    <div>
+                      <div class="step-title">Create mount point</div>
+                      <code class="inline-code">sudo mkdir -p /Volumes/data</code>
+                    </div>
+                  </div>
+                  <div class="step">
+                    <span class="step-num">2</span>
+                    <div>
+                      <div class="step-title">Mount the share</div>
+                      <code class="inline-code">{{ selectedShare.mountInfo.macosCommand }}</code>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              <!-- VMware optional -->
+              <div class="vmware-optional">
+                <div class="vmware-badge">OPTIONAL</div>
+                <div class="vmware-text">
+                  <strong>VMware ESXi integration</strong>
+                  <span>Automatically create an NFS datastore on your ESXi host</span>
+                </div>
+                <button class="btn btn-secondary btn-sm">Configure ESXi →</button>
+              </div>
+            </div>
+          }
+
+          <!-- FILES -->
+          <div class="detail-section">
+            <div class="files-header">
+              <h3>Files</h3>
+              <label class="upload-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload file
+                <input type="file" hidden (change)="uploadFile($event)">
+              </label>
             </div>
 
+            @if (files.length === 0) {
+              <div class="empty-state" style="padding: 24px">
+                <p style="color: var(--text-muted); font-size: 13px">No files yet — upload your first file</p>
+              </div>
+            }
+
+            @if (files.length > 0) {
+              <div class="files-list">
+                @for (f of files; track f.name) {
+                  <div class="file-row">
+                    <div class="file-icon">
+                      @if (f.directory) {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                      }
+                      @if (!f.directory) {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      }
+                    </div>
+                    <span class="file-name">{{ f.name }}</span>
+                    <span class="file-meta">{{ f.size }}</span>
+                    <span class="file-meta">{{ f.date }}</span>
+                  </div>
+                }
+              </div>
+            }
           </div>
-
         </div>
-      </div>
-
-      <!-- DETAILS PANEL -->
-      <div *ngIf="selectedShare" class="glass-panel mt-4">
-
-        <div class="section-title">
-          <h2>{{ selectedShare.name }}</h2>
-        </div>
-
-        <div *ngIf="mountInfo" class="mb-8">
-
-          <h3>Mount Info</h3>
-
-          <pre class="esxi-code-block">
-Server: {{ mountInfo.server }}
-Path: {{ mountInfo.path }}
-
-ESXi:
-- Server: {{ mountInfo.server }}
-- Folder: {{ mountInfo.path }}
-- Version: NFS 4
-          </pre>
-
-        </div>
-
-        <input type="file" (change)="uploadFile($event)" class="mt-4">
-
-        <h3 class="mt-4">Files</h3>
-
-        <div *ngIf="files.length === 0" class="empty-state">
-          <h3>Empty share</h3>
-        </div>
-
-        <div *ngIf="files.length > 0" class="data-list">
-
-          <div class="data-row" *ngFor="let f of files">
-            <div class="data-name">{{ f.name }}</div>
-            <div>{{ f.size }}</div>
-          </div>
-
-        </div>
-
-      </div>
-
+      }
     </div>
 
-    <!-- RIGHT: CREATE PANEL -->
+    <!-- RIGHT: CREATE -->
     <div class="create-sidebar">
-
       <div class="glass-panel create-card">
-
-        <div class="create-icon-wrapper">➕</div>
-
-        <h3>Create Share</h3>
+        <div class="create-icon-wrapper">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        </div>
+        <h3>Create File Share</h3>
+        <p class="create-desc">Provision a CephFS share exposed via NFSv4. Mount from Linux, Windows, or macOS.</p>
 
         <div class="form-group">
-          <label>Name</label>
-          <input [(ngModel)]="newShareName"
-                 class="premium-input"
-                 placeholder="share name" />
+          <label>Share name</label>
+          <input [(ngModel)]="newShareName" class="premium-input" placeholder="e.g. project-data" />
+          <div class="input-hint">Letters, numbers, hyphens only</div>
         </div>
 
-        <button class="primary-gradient w-full"
-                (click)="createShare()"
-                [disabled]="loading">
-          Create Share
+        <div class="protocol-info">
+          <div class="protocol-row">
+            <span class="protocol-label">Protocol</span>
+            <span class="protocol-value">NFSv4.1</span>
+          </div>
+          <div class="protocol-row">
+            <span class="protocol-label">Backend</span>
+            <span class="protocol-value">CephFS</span>
+          </div>
+          <div class="protocol-row">
+            <span class="protocol-label">Access</span>
+            <span class="protocol-value">Read / Write</span>
+          </div>
+        </div>
+
+        <button class="primary-gradient w-full" (click)="createShare()" [disabled]="creating || !newShareName.trim()">
+          @if (creating) { Creating... }
+          @if (!creating) { Create share }
         </button>
-
       </div>
-
     </div>
 
   </div>

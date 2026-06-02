@@ -4,39 +4,78 @@ import com.example.demo.dto.BlockVolumeResponse;
 import com.example.demo.dto.CreateBlockVolumeRequest;
 import com.example.demo.entities.BlockVolume;
 import com.example.demo.entities.BlockVolumeStatus;
+import com.example.demo.entities.InitiatorType;
 import com.example.demo.repositories.BlockVolumeRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Orchestrates the block volume lifecycle.
+ *
+ * <h3>Two provisioning paths</h3>
+ * <ol>
+ *   <li><b>Generic iSCSI</b> (default) — provisions an RBD image, creates a
+ *       ceph-iscsi target, and returns IQN + portal address. The client
+ *       connects with any standard iSCSI initiator (Linux open-iscsi, Windows
+ *       iSCSI Initiator, VMware software adapter, cloud VMs, etc.).</li>
+ *   <li><b>ESXi integration</b> (opt-in) — same as above, then additionally
+ *       rescans an ESXi host and creates a VMFS datastore automatically.
+ *       Enabled by populating {@code CreateBlockVolumeRequest.esxiIntegration}.</li>
+ * </ol>
+ *
+ * <p>The ESXi path reuses the existing {@link EsxiIntegrationService}
+ * (which delegates to the unchanged {@link EsxiService} and
+ * {@link EsxiSshService}) — no ESXi logic was removed.
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BlockVolumeService {
 
-    private static final String GATEWAY_NAME = "ceph-node-1";
-    private static final String GATEWAY_IP = "192.168.100.51";
-    private static final String IQN_PREFIX = "iqn.2026-04.com.staas:";
+    private static final String IQN_PREFIX  = "iqn.2026-04.com.staas:";
+    private static final String GATEWAY_IP  = "192.168.100.51";
+    private static final int    GATEWAY_PORT = 3260;
 
-    private final BlockVolumeRepository repository;
-    private final ProvisionEventService eventService;
-    private final BlockStorageService blockStorageService;
-    private final CephSshService sshService;
-    private final EsxiService esxiService;
+    private final BlockVolumeRepository    repository;
+    private final ProvisionEventService    eventService;
+    private final BlockStorageService      blockStorageService;
+    private final IscsiProvisioningService iscsiProvisioning;
+    private final EsxiIntegrationService   esxiIntegration;
 
-    public synchronized BlockVolumeResponse createVolume(Long projectId, CreateBlockVolumeRequest dto) {
+    // ── Create ────────────────────────────────────────────────────────────────
+
+    /**
+     * Creates and provisions a block volume.
+     *
+     * <p>If {@code dto.esxiIntegration} is null the call is synchronous and
+     * returns as soon as the LUN is active (status = {@code ISCSI_READY}).
+     * If ESXi integration is requested the call additionally rescans the ESXi
+     * host and creates a VMFS datastore (status = {@code READY}).
+     */
+    public synchronized BlockVolumeResponse createVolume(
+            Long projectId, CreateBlockVolumeRequest dto) {
+
         validateName(dto.getName());
 
         if (repository.existsByProjectIdAndName(projectId, dto.getName())) {
             throw new IllegalArgumentException("Block volume already exists in this project");
         }
 
-        String volumeKey = buildVolumeKey(projectId, dto.getName());
-        String targetIqn = IQN_PREFIX + volumeKey;
-        String datastoreName = volumeKey;
+        boolean esxiRequested = dto.getEsxiIntegration() != null;
+        InitiatorType initiatorType = esxiRequested
+                ? InitiatorType.VMWARE_ESXI
+                : InitiatorType.GENERIC_ISCSI;
+
+        String volumeKey    = buildVolumeKey(projectId, dto.getName());
+        String targetIqn    = IQN_PREFIX + volumeKey;
+        String datastoreName = esxiRequested
+                ? resolveDatastoreName(dto.getEsxiIntegration(), volumeKey)
+                : null;
 
         BlockVolume volume = BlockVolume.builder()
                 .projectId(projectId)
@@ -47,6 +86,7 @@ public class BlockVolumeService {
                 .targetIqn(targetIqn)
                 .initiatorIqn(dto.getInitiatorIqn())
                 .gatewayIp(GATEWAY_IP)
+                .initiatorType(initiatorType)
                 .datastoreName(datastoreName)
                 .status(BlockVolumeStatus.PENDING)
                 .createdAt(LocalDateTime.now())
@@ -54,90 +94,47 @@ public class BlockVolumeService {
                 .build();
 
         repository.save(volume);
-        eventService.addEvent(volume, "START", "Starting block volume provisioning", true);
+        eventService.addEvent(volume, "START", "Starting block volume provisioning ["
+                + initiatorType + "]", true);
 
         try {
-            // IMPORTANT: snapshot ESXi disks BEFORE exposing the new LUN
-            Set<String> disksBefore = new HashSet<>(esxiService.listDisks());
+            // ── Path A: ESXi — snapshot disks BEFORE exposing the LUN ────────
+            Set<String> disksBefore = esxiRequested
+                    ? esxiIntegration.snapshotDisks()
+                    : null;
 
-            eventService.addEvent(volume, "ESXI_SNAPSHOT", "Captured ESXi disks before provisioning", true);
-
-            if (!blockStorageService.volumeExists(volumeKey)) {
-                blockStorageService.createVolume(volumeKey, dto.getSizeGB());
+            if (esxiRequested) {
+                eventService.addEvent(volume, "ESXI_SNAPSHOT",
+                        "Captured ESXi disks before provisioning", true);
             }
 
-            eventService.updateStatus(volume, BlockVolumeStatus.RBD_CREATED);
-            eventService.addEvent(volume, "RBD_CREATED", "RBD image created in pool rbd", true);
+            // ── Core iSCSI provisioning (both paths) ─────────────────────────
+            iscsiProvisioning.provision(volume);
 
-            runGwcli(volume, """
-                cd /iscsi-targets
-                create %s
-                """.formatted(targetIqn));
+            // ── Path A continuation: ESXi datastore ──────────────────────────
+            if (esxiRequested) {
+                String newDisk = esxiIntegration.detectAndRegisterNewDisk(volume, disksBefore);
 
-            eventService.updateStatus(volume, BlockVolumeStatus.TARGET_CREATED);
-            eventService.addEvent(volume, "TARGET_CREATED", "iSCSI target created: " + targetIqn, true);
+                volume.setEsxiDiskCanonical(newDisk);
+                repository.save(volume);
 
-            runGwcli(volume, """
-                cd /iscsi-targets/%s/gateways
-                create %s %s
-                """.formatted(targetIqn, GATEWAY_NAME, GATEWAY_IP));
+                esxiIntegration.createDatastore(volume, newDisk);
 
-            eventService.updateStatus(volume, BlockVolumeStatus.GATEWAY_ADDED);
-            eventService.addEvent(volume, "GATEWAY_ADDED", "Gateway attached: " + GATEWAY_IP, true);
+                volume.setStatus(BlockVolumeStatus.READY);
 
-            runGwcli(volume, """
-                cd /disks
-                create pool=%s image=%s
-                """.formatted(volume.getPoolName(), volumeKey));
+            } else {
+                // ── Path B: generic iSCSI — done after LUN is ready ──────────
+                volume.setStatus(BlockVolumeStatus.ISCSI_READY);
+            }
 
-            eventService.updateStatus(volume, BlockVolumeStatus.DISK_EXPOSED);
-            eventService.addEvent(volume, "DISK_EXPOSED", "RBD exposed in ceph-iscsi", true);
-
-            runGwcli(volume, """
-                cd /iscsi-targets/%s/hosts
-                create %s
-                """.formatted(targetIqn, volume.getInitiatorIqn()));
-
-            eventService.addEvent(volume, "HOST_CREATED", "ESXi initiator registered", true);
-
-            runGwcli(volume, """
-                cd /iscsi-targets/%s/hosts/%s
-                disk add %s/%s
-                """.formatted(
-                    targetIqn,
-                    volume.getInitiatorIqn(),
-                    volume.getPoolName(),
-                    volumeKey
-            ));
-
-            eventService.updateStatus(volume, BlockVolumeStatus.HOST_MAPPED);
-            eventService.addEvent(volume, "HOST_MAPPED", "Disk mapped to ESXi initiator", true);
-
-            waitForLunReady(volume);
-
-            eventService.updateStatus(volume, BlockVolumeStatus.LUN_READY);
-            eventService.addEvent(volume, "LUN_READY", "LUN is active on target side", true);
-            //hedhy zedtha
-            //eventService.addEvent(volume, "WAIT_ESXI", "Waiting for ESXi to discover LUN", true);
-            // Correct detection: compare ESXi disks after provisioning with snapshot before provisioning
-           String newDisk = esxiService.detectNewDisk(disksBefore);
-           // String newDisk = esxiService.detectDiskByIqn(targetIqn);
-            volume.setEsxiDiskCanonical(newDisk);
-            repository.save(volume);
-
-            eventService.updateStatus(volume, BlockVolumeStatus.ESXI_RESCANNED);
-            eventService.addEvent(volume, "ESXI_RESCANNED", "ESXi detected disk: " + newDisk, true);
-
-            esxiService.createDatastore(volume.getDatastoreName(), newDisk);
-
-            eventService.updateStatus(volume, BlockVolumeStatus.DATASTORE_CREATED);
-            eventService.addEvent(volume, "DATASTORE_CREATED", "VMFS datastore created on ESXi", true);
-
-            volume.setStatus(BlockVolumeStatus.READY);
             volume.setUpdatedAt(LocalDateTime.now());
             repository.save(volume);
 
-            eventService.addEvent(volume, "READY", "Provisioning finished successfully", true);
+            eventService.addEvent(volume, "READY",
+                    esxiRequested
+                            ? "Provisioning finished — VMFS datastore ready"
+                            : "Provisioning finished — iSCSI LUN ready for connection",
+                    true);
 
             return toResponse(volume);
 
@@ -147,6 +144,14 @@ public class BlockVolumeService {
         }
     }
 
+    // ── Delete ────────────────────────────────────────────────────────────────
+
+    /**
+     * Deletes a block volume and all associated resources.
+     *
+     * <p>For ESXi volumes the datastore is removed first (non-fatal on failure).
+     * iSCSI and RBD teardown follows regardless of initiator type.
+     */
     public synchronized void deleteVolume(Long projectId, String name) {
         BlockVolume volume = repository.findByProjectIdAndName(projectId, name)
                 .orElseThrow(() -> new IllegalArgumentException("Block volume not found"));
@@ -154,58 +159,21 @@ public class BlockVolumeService {
         volume.setStatus(BlockVolumeStatus.DELETING);
         volume.setUpdatedAt(LocalDateTime.now());
         repository.save(volume);
-
         eventService.addEvent(volume, "DELETING", "Deleting block volume", true);
 
         try {
-            try {
-                esxiService.deleteDatastore(volume.getDatastoreName());
-                eventService.addEvent(volume, "DATASTORE_DELETED", "ESXi datastore deleted", true);
-            } catch (Exception e) {
-                eventService.addEvent(volume, "DATASTORE_DELETE_WARNING", e.getMessage(), false);
+            // ESXi datastore cleanup (no-op for generic iSCSI volumes)
+            if (volume.getInitiatorType() == InitiatorType.VMWARE_ESXI
+                    && volume.getDatastoreName() != null) {
+                esxiIntegration.deleteDatastore(volume);
             }
 
-            try {
-                runGwcli(volume, """
-                    cd /iscsi-targets/%s/hosts/%s
-                    disk remove %s/%s
-                    """.formatted(
-                        volume.getTargetIqn(),
-                        volume.getInitiatorIqn(),
-                        volume.getPoolName(),
-                        volume.getVolumeKey()
-                ));
-            } catch (Exception ignored) {}
-
-            try {
-                runGwcli(volume, """
-                    cd /iscsi-targets/%s/hosts
-                    delete %s
-                    """.formatted(volume.getTargetIqn(), volume.getInitiatorIqn()));
-            } catch (Exception ignored) {}
-
-            try {
-                runGwcli(volume, """
-                    cd /disks
-                    delete %s/%s
-                    """.formatted(volume.getPoolName(), volume.getVolumeKey()));
-            } catch (Exception ignored) {}
-
-            try {
-                runGwcli(volume, """
-                    cd /iscsi-targets
-                    delete %s
-                    """.formatted(volume.getTargetIqn()));
-            } catch (Exception ignored) {}
-
-            if (blockStorageService.volumeExists(volume.getVolumeKey())) {
-                blockStorageService.deleteVolume(volume.getVolumeKey());
-            }
+            // iSCSI + RBD teardown (both paths)
+            iscsiProvisioning.deprovision(volume);
 
             volume.setStatus(BlockVolumeStatus.DELETED);
             volume.setUpdatedAt(LocalDateTime.now());
             repository.save(volume);
-
             eventService.addEvent(volume, "DELETED", "Block volume deleted", true);
 
         } catch (Exception e) {
@@ -213,6 +181,48 @@ public class BlockVolumeService {
             throw new RuntimeException("Failed to delete block volume: " + e.getMessage(), e);
         }
     }
+
+    // ── Extend (append disk as VMFS extent) ───────────────────────────────────
+
+    /**
+     * Creates a new RBD image + iSCSI LUN and appends it as a VMFS extent to
+     * the datastore of {@code existingVolumeName}.
+     *
+     * <p>This operation is only valid for volumes of type
+     * {@link InitiatorType#VMWARE_ESXI}.
+     */
+    public synchronized BlockVolumeResponse appendDiskToVolume(
+            Long projectId, String existingVolumeName, CreateBlockVolumeRequest dto) {
+
+        BlockVolume existing = repository.findByProjectIdAndName(projectId, existingVolumeName)
+                .orElseThrow(() -> new IllegalArgumentException("Base volume not found"));
+
+        if (existing.getInitiatorType() != InitiatorType.VMWARE_ESXI) {
+            throw new IllegalArgumentException(
+                    "appendDiskToVolume is only supported for VMWARE_ESXI volumes");
+        }
+
+        validateName(dto.getName());
+
+        String newVolumeKey = buildVolumeKey(projectId, dto.getName());
+        String newTargetIqn = IQN_PREFIX + newVolumeKey;
+
+        // Snapshot before exposing LUN
+        Set<String> disksBefore = esxiIntegration.snapshotDisks();
+
+        // Provision the new LUN (reuse existing initiator IQN)
+        iscsiProvisioning.provisionAdditionalDisk(
+                existing, newVolumeKey, newTargetIqn, dto.getSizeGB());
+
+        sleep(5000);
+
+        // Append as VMFS extent (not a new datastore)
+        esxiIntegration.appendExtentToDatastore(existing, disksBefore);
+
+        return toResponse(existing);
+    }
+
+    // ── Queries ───────────────────────────────────────────────────────────────
 
     public List<BlockVolumeResponse> listProjectVolumes(Long projectId) {
         return repository.findByProjectId(projectId)
@@ -222,40 +232,55 @@ public class BlockVolumeService {
     }
 
     public BlockVolumeResponse getVolume(Long projectId, String name) {
-        BlockVolume volume = repository.findByProjectIdAndName(projectId, name)
+        return repository.findByProjectIdAndName(projectId, name)
+                .map(this::toResponse)
                 .orElseThrow(() -> new IllegalArgumentException("Block volume not found"));
-
-        return toResponse(volume);
     }
 
-    private void waitForLunReady(BlockVolume volume) {
-        for (int i = 0; i < 20; i++) {
-            String out = sshService.executeBash("sudo targetcli ls");
+    // ── Mapping ───────────────────────────────────────────────────────────────
 
-            if (out.contains(volume.getVolumeKey())) {
-                return;
-            }
+    private BlockVolumeResponse toResponse(BlockVolume v) {
 
-            sleep(2000);
+        BlockVolumeResponse.IscsiConnectionInfo iscsiInfo =
+                BlockVolumeResponse.IscsiConnectionInfo.builder()
+                        .targetIqn(v.getTargetIqn())
+                        .portalAddress(v.getGatewayIp() + ":" + GATEWAY_PORT)
+                        .initiatorIqn(v.getInitiatorIqn())
+                        .build();
+
+        BlockVolumeResponse.EsxiIntegrationInfo esxiInfo = null;
+        if (v.getInitiatorType() == InitiatorType.VMWARE_ESXI) {
+            esxiInfo = BlockVolumeResponse.EsxiIntegrationInfo.builder()
+                    .datastoreName(v.getDatastoreName())
+                    .esxiDiskCanonical(v.getEsxiDiskCanonical())
+                    .build();
         }
 
-        throw new RuntimeException("LUN did not become active in targetcli");
+        return BlockVolumeResponse.builder()
+                .id(v.getId())
+                .projectId(v.getProjectId())
+                .name(v.getName())
+                .volumeKey(v.getVolumeKey())
+                .sizeGB(v.getSizeGB())
+                .initiatorType(v.getInitiatorType())
+                .status(v.getStatus())
+                .errorMessage(v.getErrorMessage())
+                .iscsiConnection(iscsiInfo)
+                .esxiIntegration(esxiInfo)
+                .build();
     }
 
-    private void runGwcli(BlockVolume volume, String innerCommand) {
-        String script = """
-            gwcli <<'EOF'
-            %s
-            exit
-            EOF
-            """.formatted(innerCommand);
-
-        String output = sshService.executeBash(script);
-        eventService.addEvent(volume, "GWCLI", output, true);
-    }
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private String buildVolumeKey(Long projectId, String name) {
         return "proj-" + projectId + "-" + name;
+    }
+
+    private String resolveDatastoreName(
+            CreateBlockVolumeRequest.EsxiIntegrationRequest req, String fallback) {
+        return (req.getDatastoreName() != null && !req.getDatastoreName().isBlank())
+                ? req.getDatastoreName()
+                : fallback;
     }
 
     private void validateName(String name) {
@@ -264,87 +289,10 @@ public class BlockVolumeService {
         }
     }
 
-    private BlockVolumeResponse toResponse(BlockVolume v) {
-        return BlockVolumeResponse.builder()
-                .id(v.getId())
-                .projectId(v.getProjectId())
-                .name(v.getName())
-                .volumeKey(v.getVolumeKey())
-                .sizeGB(v.getSizeGB())
-                .targetIqn(v.getTargetIqn())
-                .initiatorIqn(v.getInitiatorIqn())
-                .gatewayIp(v.getGatewayIp())
-                .datastoreName(v.getDatastoreName())
-                .esxiDiskCanonical(v.getEsxiDiskCanonical())
-                .status(v.getStatus())
-                .errorMessage(v.getErrorMessage())
-                .build();
-    }
-
     private void sleep(long ms) {
         try {
             Thread.sleep(ms);
-        } catch (InterruptedException ignored) {}
-    }
-   public synchronized BlockVolumeResponse appendDiskToVolume(
-            Long projectId, String existingVolumeName, CreateBlockVolumeRequest dto) {
-
-        // Load the existing volume (for its datastore name)
-        BlockVolume existing = repository.findByProjectIdAndName(projectId, existingVolumeName)
-                .orElseThrow(() -> new IllegalArgumentException("Base volume not found"));
-
-        validateName(dto.getName());
-
-        String volumeKey = buildVolumeKey(projectId, dto.getName());
-        String targetIqn = IQN_PREFIX + volumeKey;
-
-        // Snapshot disks BEFORE exposing the new LUN
-        Set<String> disksBefore = new HashSet<>(esxiService.listDisks());
-
-        // 1. Create new RBD image
-        if (!blockStorageService.volumeExists(volumeKey)) {
-            blockStorageService.createVolume(volumeKey, dto.getSizeGB());
+        } catch (InterruptedException ignored) {
         }
-
-        // 2. Create iSCSI target + gateway + disk + host mapping
-        runGwcli(existing, """
-        cd /iscsi-targets
-        create %s
-        """.formatted(targetIqn));
-
-        runGwcli(existing, """
-        cd /iscsi-targets/%s/gateways
-        create %s %s
-        """.formatted(targetIqn, GATEWAY_NAME, GATEWAY_IP));
-
-        runGwcli(existing, """
-        cd /disks
-        create pool=%s image=%s
-        """.formatted(blockStorageService.getPool(), volumeKey));
-
-        runGwcli(existing, """
-        cd /iscsi-targets/%s/hosts
-        create %s
-        """.formatted(targetIqn, existing.getInitiatorIqn()));
-
-        runGwcli(existing, """
-        cd /iscsi-targets/%s/hosts/%s
-        disk add %s/%s
-        """.formatted(targetIqn, existing.getInitiatorIqn(),
-                blockStorageService.getPool(), volumeKey));
-
-        // 3. Wait for LUN, then detect new disk on ESXi
-        // (reuse waitForLunReady with a temporary volume object if needed)
-        sleep(5000);
-        esxiService.rescan();
-        sleep(3000);
-
-        String newDisk = esxiService.detectNewDisk(disksBefore);
-
-        // 4. Append disk as VMFS extent — NOT a new datastore
-        esxiService.appendDiskToDatastore(existing.getDatastoreName(), newDisk);
-
-        // Optionally: persist the new extent as a separate entity or just return
-        return toResponse(existing);
     }
 }

@@ -478,4 +478,45 @@ verifyOtp(mfaToken: string, otp: string) {
     // ← no headers
   );
 }
+// ADD these methods to your existing Api service (api.ts)
+// Place them after the existing block volumes section
+
+// ========================
+// AGENTS
+// ========================
+
+listAgents(projectId: number) {
+  return this.http.get<any[]>(
+    `${this.baseUrl}/projects/${projectId}/agents`,
+    this.getHeaders()
+  );
+}
+
+registerAgent(request: { hostname: string; initiatorIqn: string; os: string }) {
+  return this.http.post<{ agentId: number; jwt: string }>(
+    `${this.baseUrl}/agents/register`,
+    request,
+    this.getHeaders()
+  );
+}
+
+// ========================
+// ATTACH / DETACH
+// ========================
+
+attachVolume(projectId: number, volumeName: string, agentId: number) {
+  return this.http.post<any>(
+    `${this.baseUrl}/projects/${projectId}/block-volumes/${volumeName}/attach`,
+    { agentId },
+    this.getHeaders()
+  );
+}
+
+detachVolume(projectId: number, volumeName: string, agentId: number) {
+  return this.http.post<any>(
+    `${this.baseUrl}/projects/${projectId}/block-volumes/${volumeName}/detach`,
+    { agentId },
+    this.getHeaders()
+  );
+}
 }
